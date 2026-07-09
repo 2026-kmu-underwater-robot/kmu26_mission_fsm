@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/python3
 """Dedicated web GUI for kmu26_mission_fsm.
 
 This is intentionally separate from the simulator control GUI and the real
@@ -9,11 +9,15 @@ camera preview, state telemetry, and guarded RC override commands.
 from __future__ import annotations
 
 import argparse
+import contextlib
+import errno
+import io
 import json
 import mimetypes
 import os
 import signal
 import subprocess
+import sys
 import threading
 import time
 from collections import deque
@@ -35,6 +39,8 @@ from mavros_msgs.msg import State
 from nav_msgs.msg import Odometry
 from rclpy.executors import SingleThreadedExecutor
 from rclpy.node import Node
+from rclpy.qos import QoSProfile
+from rclpy.qos import ReliabilityPolicy
 from sensor_msgs.msg import BatteryState
 from sensor_msgs.msg import CompressedImage
 from sensor_msgs.msg import Image
@@ -42,12 +48,17 @@ from sensor_msgs.msg import Imu
 from sensor_msgs.msg import Joy
 from std_msgs.msg import String
 
+cv2 = None
+np = None
+RAW_IMAGE_CONVERSION_ERROR = ""
 try:  # Optional raw image conversion.
-    import cv2  # type: ignore
-    import numpy as np  # type: ignore
-except Exception:  # pragma: no cover - depends on host image stack.
-    cv2 = None
-    np = None
+    with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+        import cv2 as _cv2  # type: ignore
+        import numpy as _np  # type: ignore
+    cv2 = _cv2
+    np = _np
+except Exception as exc:  # pragma: no cover - depends on host image stack.
+    RAW_IMAGE_CONVERSION_ERROR = str(exc) or exc.__class__.__name__
 
 
 RC_CHANNEL_COUNT = 18
@@ -201,19 +212,26 @@ class FsmGuiNode(Node):
             "yolo": TopicHealth(args.yolo_detection_topic),
         }
 
+        telemetry_qos = QoSProfile(depth=20, reliability=ReliabilityPolicy.BEST_EFFORT)
+
         self.rc_pub = self.create_publisher(OverrideRCIn, args.rc_topic, 10)
-        self.create_subscription(Odometry, args.pose_topic, self._on_odom, 20)
-        self.create_subscription(State, args.state_topic, self._on_state, 20)
-        self.create_subscription(OverrideRCIn, args.rc_topic, self._on_rc_override, 20)
-        self.create_subscription(ManualControl, args.manual_topic, self._on_manual_control, 20)
-        self.create_subscription(TwistWithCovarianceStamped, args.dvl_twist_topic, self._on_dvl, 20)
-        self.create_subscription(PoseWithCovarianceStamped, args.depth_topic, self._on_depth, 20)
-        self.create_subscription(Imu, args.imu_topic, self._on_imu, 20)
-        self.create_subscription(Joy, args.joy_topic, self._on_joy, 20)
-        self.create_subscription(BatteryState, args.battery_topic, self._on_battery, 20)
-        self.create_subscription(CompressedImage, args.camera_compressed_topic, self._on_compressed_image, 5)
-        self.create_subscription(Image, args.camera_raw_topic, self._on_raw_image, 5)
-        self.create_subscription(String, args.yolo_detection_topic, self._on_yolo, 20)
+        self.create_subscription(Odometry, args.pose_topic, self._on_odom, telemetry_qos)
+        self.create_subscription(State, args.state_topic, self._on_state, telemetry_qos)
+        self.create_subscription(OverrideRCIn, args.rc_topic, self._on_rc_override, telemetry_qos)
+        self.create_subscription(ManualControl, args.manual_topic, self._on_manual_control, telemetry_qos)
+        self.create_subscription(TwistWithCovarianceStamped, args.dvl_twist_topic, self._on_dvl, telemetry_qos)
+        self.create_subscription(PoseWithCovarianceStamped, args.depth_topic, self._on_depth, telemetry_qos)
+        self.create_subscription(Imu, args.imu_topic, self._on_imu, telemetry_qos)
+        self.create_subscription(Joy, args.joy_topic, self._on_joy, telemetry_qos)
+        self.create_subscription(BatteryState, args.battery_topic, self._on_battery, telemetry_qos)
+        self.create_subscription(
+            CompressedImage,
+            args.camera_compressed_topic,
+            self._on_compressed_image,
+            telemetry_qos,
+        )
+        self.create_subscription(Image, args.camera_raw_topic, self._on_raw_image, telemetry_qos)
+        self.create_subscription(String, args.yolo_detection_topic, self._on_yolo, telemetry_qos)
 
     def _load_launch_config(self) -> dict[str, Any]:
         defaults = {
@@ -374,6 +392,7 @@ class FsmGuiNode(Node):
                     "age": None if self.last_camera_stamp_s is None else max(0.0, now_s() - self.last_camera_stamp_s),
                     "has_frame": self.last_camera_jpeg is not None,
                     "raw_conversion": "opencv" if cv2 is not None and np is not None else "unavailable",
+                    "raw_conversion_error": RAW_IMAGE_CONVERSION_ERROR,
                     "error": self.last_compressed_error,
                 },
                 "mission_status_path": str(status_path),
@@ -666,6 +685,11 @@ class FsmWebHandler(BaseHTTPRequestHandler):
         self._send_json({"ok": False, "error": message}, status)
 
 
+class ReusableThreadingHTTPServer(ThreadingHTTPServer):
+    allow_reuse_address = True
+    daemon_threads = True
+
+
 def build_handler(node: FsmGuiNode, static_dir: Path) -> type[FsmWebHandler]:
     class Handler(FsmWebHandler):
         pass
@@ -691,8 +715,8 @@ def parse_args() -> tuple[argparse.Namespace, list[str]]:
     parser.add_argument("--imu-topic", default="/mavros/imu/data")
     parser.add_argument("--joy-topic", default="/joy")
     parser.add_argument("--battery-topic", default="/battery")
-    parser.add_argument("--camera-compressed-topic", default="/camera/image_raw/compressed")
-    parser.add_argument("--camera-raw-topic", default="/camera/image_raw")
+    parser.add_argument("--camera-compressed-topic", default="/camera/camera/color/image_raw/compressed")
+    parser.add_argument("--camera-raw-topic", default="/camera/camera/color/image_raw")
     parser.add_argument("--yolo-detection-topic", default="/uuv_mujoco/yolo_buoy_detections")
     parser.add_argument("--camera-on", action="store_true")
     parser.add_argument("--allow-rc-send", action="store_true")
@@ -703,17 +727,31 @@ def main() -> int:
     args, ros_args = parse_args()
     rclpy.init(args=ros_args if ros_args else None)
     node = FsmGuiNode(args)
-    executor = SingleThreadedExecutor()
-    executor.add_node(node)
-    spin_thread = threading.Thread(target=executor.spin, name="fsm-web-rclpy", daemon=True)
-    spin_thread.start()
 
     if args.static_dir:
         static_dir = Path(args.static_dir)
     else:
         static_dir = Path(get_package_share_directory("kmu26_mission_fsm")) / "web" / "fsm_gui"
     handler_cls = build_handler(node, static_dir)
-    httpd = ThreadingHTTPServer((args.host, args.port), handler_cls)
+    try:
+        httpd = ReusableThreadingHTTPServer((args.host, args.port), handler_cls)
+    except OSError as exc:
+        node.destroy_node()
+        rclpy.shutdown()
+        if exc.errno == errno.EADDRINUSE:
+            print(
+                f"[fsm-gui] {args.host}:{args.port} is already in use; "
+                "stop the previous GUI launch or set port:=8891",
+                file=sys.stderr,
+                flush=True,
+            )
+            return 1
+        raise
+
+    executor = SingleThreadedExecutor()
+    executor.add_node(node)
+    spin_thread = threading.Thread(target=executor.spin, name="fsm-web-rclpy", daemon=True)
+    spin_thread.start()
 
     stop_event = threading.Event()
 
@@ -729,7 +767,9 @@ def main() -> int:
     finally:
         for proc in list(node.processes.values()):
             proc.stop()
+        httpd.server_close()
         executor.shutdown()
+        spin_thread.join(timeout=2.0)
         node.destroy_node()
         rclpy.shutdown()
     return 0

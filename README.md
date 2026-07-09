@@ -33,13 +33,15 @@ If the vehicle uses different topic names, pass them explicitly:
   --pose-topic /odometry/filtered \
   --state-topic /mavros/state \
   --dvl-twist-topic /dvl/twist \
-  --depth-topic /depth/pose
+  --depth-topic /depth/pose \
+  --camera-compressed-topic /camera/camera/color/image_raw/compressed
 ```
 
 The preflight follows the original `kmu26_auv_web_gui` real-robot contract:
 `hit25_auv_ros2 localization_test.launch.py` is the robot stack, and the GUI
 expects `/odometry/filtered`, `/dvl/twist`, `/depth/pose`,
-`/mavros/imu/data`, `/joy`, and `/battery`.
+`/mavros/imu/data`, `/joy`, `/battery`, and
+`/camera/camera/color/image_raw/compressed`.
 
 `FAIL` on `/odometry/filtered` or `/mavros/state` means the robot localization
 or MAVROS bringup is not visible in the current ROS graph, or the topic names do
@@ -111,11 +113,19 @@ For a remote laptop, bind to the NUC network interface:
 ros2 launch kmu26_mission_fsm mission_fsm_gui.launch.py host:=0.0.0.0
 ```
 
+If port `8890` is already occupied by an old GUI process, either stop that
+process or launch with another port, for example `port:=8891`.
+
 The GUI can start/stop the mission FSM, pinger homing, RViz marker visualizer,
-and RViz. It also streams a camera from `/camera/image_raw/compressed` or
-`/camera/image_raw`, reads `/tmp/kmu26_mission_fsm_status.json`, shows topic
-health, and stores course boundary settings in
+and RViz. It also streams a camera from
+`/camera/camera/color/image_raw/compressed` or
+`/camera/camera/color/image_raw`, reads
+`/tmp/kmu26_mission_fsm_status.json`, shows topic health, and stores course
+boundary settings in
 `/tmp/kmu26_mission_fsm_gui_config.json`.
+
+The GUI executable intentionally uses `/usr/bin/python3` so ROS Humble's Python
+packages are used even when a conda Python appears first in `PATH`.
 
 RC publishing is locked by default. Enable it only on a checked bench/safety
 path:
@@ -133,11 +143,17 @@ ros2 launch kmu26_mission_fsm mission_fsm_gui.launch.py allow_rc_send:=true
 - GUI IMU: `/mavros/imu/data` (`sensor_msgs/Imu`)
 - GUI joystick: `/joy` (`sensor_msgs/Joy`)
 - GUI battery: `/battery` (`sensor_msgs/BatteryState`)
+- GUI camera compressed: `/camera/camera/color/image_raw/compressed` (`sensor_msgs/CompressedImage`)
+- GUI camera raw fallback: `/camera/camera/color/image_raw` (`sensor_msgs/Image`)
 - RC output: `/mavros/rc/override`
 - YOLO status: `/uuv_mujoco/yolo_buoy_detections`
 - Hydrophone direction: `/mujoco/hydrophone/direction`
 - Hydrophone status: `/mujoco/hydrophone/status`
 - RViz markers: `/mission/rviz_markers`
 - Mission status JSON: `/tmp/kmu26_mission_fsm_status.json`
+
+Mission, pinger, visualizer, and GUI telemetry subscriptions use
+best-effort-compatible QoS so they can receive from MAVROS, camera, and sensor
+publishers that do not offer reliable delivery.
 
 The bundled `config/tank_current_scene.xml` is used for target layout parsing and unit checks. Real mission operation should keep live perception/localization inputs fresh and should be tested in `dry_run` before enabling command output.

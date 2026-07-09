@@ -113,6 +113,7 @@ class PingerHomingController : public rclcpp::Node {
     hydrophone_status_topic_ =
         declare_parameter<std::string>("hydrophone_status_topic", "/mujoco/hydrophone/status");
     yolo_topic_ = declare_parameter<std::string>("yolo_topic", "/uuv_mujoco/yolo_buoy_detections");
+    state_topic_ = declare_parameter<std::string>("state_topic", "/mavros/state");
     command_override_topic_ =
         declare_parameter<std::string>("command_override_topic", "/uuv_mujoco/sitl/command_override");
     rc_override_topic_ = declare_parameter<std::string>("rc_override_topic", "/mavros/rc/override");
@@ -141,17 +142,18 @@ class PingerHomingController : public rclcpp::Node {
     invert_rc_heave_ = declare_parameter<bool>("invert_rc_heave", true);
     invert_rc_yaw_ = declare_parameter<bool>("invert_rc_yaw", true);
 
+    const auto telemetry_qos = rclcpp::QoS(rclcpp::KeepLast(10)).best_effort();
     direction_sub_ = create_subscription<geometry_msgs::msg::Vector3Stamped>(
-        direction_topic_, rclcpp::QoS(10),
+        direction_topic_, telemetry_qos,
         [this](const geometry_msgs::msg::Vector3Stamped::SharedPtr msg) { on_direction(msg); });
     hydrophone_status_sub_ = create_subscription<std_msgs::msg::String>(
-        hydrophone_status_topic_, rclcpp::QoS(10),
+        hydrophone_status_topic_, telemetry_qos,
         [this](const std_msgs::msg::String::SharedPtr msg) { on_hydrophone_status(msg); });
     yolo_sub_ = create_subscription<std_msgs::msg::String>(
-        yolo_topic_, rclcpp::QoS(10),
+        yolo_topic_, telemetry_qos,
         [this](const std_msgs::msg::String::SharedPtr msg) { on_yolo(msg); });
     state_sub_ = create_subscription<mavros_msgs::msg::State>(
-        "/mavros/state", rclcpp::QoS(10),
+        state_topic_, telemetry_qos,
         [this](const mavros_msgs::msg::State::SharedPtr msg) {
           last_state_ = *msg;
           have_state_ = true;
@@ -170,9 +172,9 @@ class PingerHomingController : public rclcpp::Node {
 
     RCLCPP_INFO(
         get_logger(),
-        "pinger homing ready transport=%s direction=%s status=%s yolo=%s rate=%.1fHz",
+        "pinger homing ready transport=%s direction=%s status=%s yolo=%s state=%s rate=%.1fHz",
         transport_.c_str(), direction_topic_.c_str(), hydrophone_status_topic_.c_str(), yolo_topic_.c_str(),
-        rate_hz_);
+        state_topic_.c_str(), rate_hz_);
   }
 
   ~PingerHomingController() override {
@@ -362,6 +364,7 @@ class PingerHomingController : public rclcpp::Node {
   std::string direction_topic_;
   std::string hydrophone_status_topic_;
   std::string yolo_topic_;
+  std::string state_topic_;
   std::string command_override_topic_;
   std::string rc_override_topic_;
   std::string status_topic_;

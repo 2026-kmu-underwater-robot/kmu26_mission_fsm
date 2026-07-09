@@ -487,8 +487,9 @@ public:
           last_pose_ = pose;
         });
     }
+    const auto telemetry_qos = rclcpp::QoS(rclcpp::KeepLast(10)).best_effort();
     yolo_sub_ = create_subscription<std_msgs::msg::String>(
-      yolo_detection_topic_, rclcpp::QoS(1),
+      yolo_detection_topic_, telemetry_qos,
       [this](std_msgs::msg::String::SharedPtr msg) {
         latest_yolo_text_ = msg->data;
         latest_yolo_wall_s_ = now().seconds();
