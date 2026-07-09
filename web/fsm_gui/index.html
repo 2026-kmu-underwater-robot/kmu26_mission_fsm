@@ -111,6 +111,55 @@
         </div>
       </section>
 
+      <section class="panel map-panel">
+        <div class="panel-head">
+          <h2>Mission Map</h2>
+          <span id="mapMeta" class="meta-line"></span>
+        </div>
+        <div class="map-frame">
+          <canvas id="missionMap"></canvas>
+        </div>
+        <div class="map-legend">
+          <span><i class="legend robot"></i>robot</span>
+          <span><i class="legend start"></i>start</span>
+          <span><i class="legend target"></i>target</span>
+          <span><i class="legend buoy"></i>buoy</span>
+          <span><i class="legend score"></i>score</span>
+        </div>
+        <div class="form-grid map-config">
+          <label>Tank X min
+            <input id="tankXMin" type="number" step="0.1">
+          </label>
+          <label>Tank X max
+            <input id="tankXMax" type="number" step="0.1">
+          </label>
+          <label>Tank Y min
+            <input id="tankYMin" type="number" step="0.1">
+          </label>
+          <label>Tank Y max
+            <input id="tankYMax" type="number" step="0.1">
+          </label>
+          <label>Start X
+            <input id="robotStartX" type="number" step="0.1">
+          </label>
+          <label>Start Y
+            <input id="robotStartY" type="number" step="0.1">
+          </label>
+          <label>Start yaw deg
+            <input id="robotStartYaw" type="number" step="1">
+          </label>
+          <label>Score X
+            <input id="scoreZoneX" type="number" step="0.1">
+          </label>
+          <label>Score Y
+            <input id="scoreZoneY" type="number" step="0.1">
+          </label>
+          <label>Score radius
+            <input id="scoreZoneRadius" type="number" step="0.1" min="0">
+          </label>
+        </div>
+      </section>
+
       <section class="panel rc-panel">
         <div class="panel-head">
           <h2>RC Command</h2>

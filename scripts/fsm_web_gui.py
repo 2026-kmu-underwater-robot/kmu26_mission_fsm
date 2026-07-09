@@ -225,6 +225,16 @@ class FsmGuiNode(Node):
             "course_boundary_x": 0.0,
             "course_boundary_margin": 0.8,
             "course_boundary_standoff": 0.7,
+            "tank_x_min": -12.0,
+            "tank_x_max": 12.0,
+            "tank_y_min": -8.0,
+            "tank_y_max": 8.0,
+            "robot_start_x": 0.0,
+            "robot_start_y": 0.0,
+            "robot_start_yaw_deg": 0.0,
+            "score_zone_x": 8.0,
+            "score_zone_y": 0.0,
+            "score_zone_radius": 1.5,
             "pose_topic": self.args.pose_topic,
             "pose_type": self.args.pose_type,
             "state_topic": self.args.state_topic,
@@ -244,7 +254,22 @@ class FsmGuiNode(Node):
                     continue
                 if key in {"dry_run"}:
                     self.launch_config[key] = bool(value)
-                elif key in {"rate_hz", "course_boundary_x", "course_boundary_margin", "course_boundary_standoff"}:
+                elif key in {
+                    "rate_hz",
+                    "course_boundary_x",
+                    "course_boundary_margin",
+                    "course_boundary_standoff",
+                    "tank_x_min",
+                    "tank_x_max",
+                    "tank_y_min",
+                    "tank_y_max",
+                    "robot_start_x",
+                    "robot_start_y",
+                    "robot_start_yaw_deg",
+                    "score_zone_x",
+                    "score_zone_y",
+                    "score_zone_radius",
+                }:
                     self.launch_config[key] = float(value)
                 else:
                     self.launch_config[key] = str(value)

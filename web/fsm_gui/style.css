@@ -81,6 +81,10 @@ h2 {
   grid-row: span 2;
 }
 
+.map-panel {
+  grid-column: 1 / -1;
+}
+
 .camera-frame {
   position: relative;
   width: 100%;
@@ -96,6 +100,65 @@ h2 {
   width: 100%;
   height: 100%;
   object-fit: contain;
+}
+
+.map-frame {
+  width: 100%;
+  height: clamp(360px, 42vh, 560px);
+  border: 1px solid #9fb1c2;
+  border-radius: 4px;
+  background: #eef5fb;
+  overflow: hidden;
+}
+
+.map-frame canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.map-legend {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin: 8px 0;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.map-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.legend {
+  display: inline-block;
+  width: 11px;
+  height: 11px;
+  border: 1px solid #2e3a47;
+}
+
+.legend.robot {
+  background: #1b5c9e;
+}
+
+.legend.start {
+  background: #f6c445;
+}
+
+.legend.target {
+  background: #d23232;
+}
+
+.legend.buoy {
+  background: #f28c28;
+}
+
+.legend.score {
+  background: #24a36a;
 }
 
 .empty {
@@ -203,6 +266,10 @@ button:disabled {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 8px;
+}
+
+.map-config {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
 }
 
 .form-grid label,
@@ -315,6 +382,7 @@ th {
   }
 
   .form-grid,
+  .map-config,
   .cards {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -329,6 +397,7 @@ th {
   .button-grid,
   .rviz-grid,
   .form-grid,
+  .map-config,
   .cards,
   .slider-grid {
     grid-template-columns: 1fr;
