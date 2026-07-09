@@ -18,6 +18,19 @@ colcon build --packages-select kmu26_mission_fsm
 source install/setup.bash
 ```
 
+After pulling updates on the vehicle NUC, run the preflight from the workspace
+without permanently changing the shell environment:
+
+```bash
+./src/kmu26_mission_fsm/scripts/real_vehicle_preflight.sh --build
+```
+
+After the package is built, the same check is also available through ROS:
+
+```bash
+ros2 run kmu26_mission_fsm real_vehicle_preflight.sh
+```
+
 ## Real-Vehicle Bringup
 
 The focused launch is conservative by default. It starts the headless RViz marker visualizer, but does not start RViz or autonomous control unless explicitly enabled. This avoids Qt/X11 display failures when running on the vehicle NUC through Docker or SSH.

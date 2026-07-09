@@ -52,6 +52,9 @@ def generate_launch_description() -> LaunchDescription:
         DeclareLaunchArgument("wait_armed", default_value="true"),
         DeclareLaunchArgument("no_pinger", default_value="false"),
         DeclareLaunchArgument("nearest_first", default_value="true"),
+        DeclareLaunchArgument("require_live_status", default_value="false"),
+        DeclareLaunchArgument("surface_collect_yolo", default_value="true"),
+        DeclareLaunchArgument("pinger_hydrophone", default_value="false"),
         DeclareLaunchArgument("mission_log", default_value="auto"),
         DeclareLaunchArgument("course_boundary_x", default_value="0.0"),
         DeclareLaunchArgument("course_boundary_margin", default_value="0.8"),
@@ -92,6 +95,9 @@ def generate_launch_description() -> LaunchDescription:
     wait_armed = LaunchConfiguration("wait_armed")
     no_pinger = LaunchConfiguration("no_pinger")
     nearest_first = LaunchConfiguration("nearest_first")
+    require_live_status = LaunchConfiguration("require_live_status")
+    surface_collect_yolo = LaunchConfiguration("surface_collect_yolo")
+    pinger_hydrophone = LaunchConfiguration("pinger_hydrophone")
     mission_log = LaunchConfiguration("mission_log")
     course_boundary_x = LaunchConfiguration("course_boundary_x")
     course_boundary_margin = LaunchConfiguration("course_boundary_margin")
@@ -127,10 +133,13 @@ def generate_launch_description() -> LaunchDescription:
             "--course-boundary-x", course_boundary_x.perform(context),
             "--course-boundary-margin", course_boundary_margin.perform(context),
             "--course-boundary-standoff", course_boundary_standoff.perform(context),
-            "--require-live-status",
-            "--surface-collect-yolo",
-            "--pinger-hydrophone",
         ]
+        mission_fsm_args.append(
+            "--require-live-status" if _launch_bool(context, require_live_status) else "--allow-static-fallback")
+        mission_fsm_args.append(
+            "--surface-collect-yolo" if _launch_bool(context, surface_collect_yolo) else "--no-surface-collect-yolo")
+        mission_fsm_args.append(
+            "--pinger-hydrophone" if _launch_bool(context, pinger_hydrophone) else "--no-pinger-hydrophone")
         if _launch_bool(context, dry_run):
             mission_fsm_args.append("--dry-run")
         mission_fsm_args.append("--wait-armed" if _launch_bool(context, wait_armed) else "--no-wait-armed")
