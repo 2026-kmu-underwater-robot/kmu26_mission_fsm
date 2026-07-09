@@ -44,7 +44,7 @@ Visualization Manager:
         All Enabled: true
         base_link:
           Value: true
-        map:
+        odom:
           Value: true
       Marker Scale: 0.3
       Name: TF
@@ -52,7 +52,7 @@ Visualization Manager:
       Show Axes: true
       Show Names: true
       Tree:
-        map:
+        odom:
           base_link:
             {}
       Update Interval: 0
@@ -76,7 +76,7 @@ Visualization Manager:
       Name: Odometry
       Position Use Topic: true
       Topic:
-        Value: /mavros/local_position/odom
+        Value: /odometry/filtered
       Value: true
     - Class: rviz_default_plugins/MarkerArray
       Enabled: true
@@ -89,7 +89,7 @@ Visualization Manager:
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
-    Fixed Frame: map
+    Fixed Frame: odom
     Frame Rate: 30
   Name: root
   Tools:

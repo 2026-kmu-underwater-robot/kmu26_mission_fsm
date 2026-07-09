@@ -32,7 +32,8 @@ def generate_launch_description() -> LaunchDescription:
         DeclareLaunchArgument("mission_status_json", default_value="/tmp/kmu26_mission_fsm_status.json"),
         DeclareLaunchArgument("scene", default_value=default_scene),
         DeclareLaunchArgument("rviz_config", default_value=default_rviz),
-        DeclareLaunchArgument("pose_topic", default_value="/mavros/local_position/pose"),
+        DeclareLaunchArgument("pose_topic", default_value="/odometry/filtered"),
+        DeclareLaunchArgument("pose_type", default_value="odometry"),
         DeclareLaunchArgument("state_topic", default_value="/mavros/state"),
         DeclareLaunchArgument("rc_topic", default_value="/mavros/rc/override"),
         DeclareLaunchArgument("manual_topic", default_value="/mavros/manual_control/send"),
@@ -42,7 +43,7 @@ def generate_launch_description() -> LaunchDescription:
         DeclareLaunchArgument("hydrophone_direction_topic", default_value="/mujoco/hydrophone/direction"),
         DeclareLaunchArgument("hydrophone_status_topic", default_value="/mujoco/hydrophone/status"),
         DeclareLaunchArgument("marker_topic", default_value="/mission/rviz_markers"),
-        DeclareLaunchArgument("marker_frame", default_value="map"),
+        DeclareLaunchArgument("marker_frame", default_value="odom"),
         DeclareLaunchArgument("course", default_value="all"),
         DeclareLaunchArgument("own_course", default_value="a"),
         DeclareLaunchArgument("transport", default_value="rc_override"),
@@ -72,6 +73,7 @@ def generate_launch_description() -> LaunchDescription:
     scene = LaunchConfiguration("scene")
     rviz_config = LaunchConfiguration("rviz_config")
     pose_topic = LaunchConfiguration("pose_topic")
+    pose_type = LaunchConfiguration("pose_type")
     state_topic = LaunchConfiguration("state_topic")
     rc_topic = LaunchConfiguration("rc_topic")
     manual_topic = LaunchConfiguration("manual_topic")
@@ -113,6 +115,7 @@ def generate_launch_description() -> LaunchDescription:
             "--rate-hz", rate_hz.perform(context),
             "--transport", transport.perform(context),
             "--pose-topic", pose_topic.perform(context),
+            "--pose-type", pose_type.perform(context),
             "--buoy-status-topic", buoy_status_topic.perform(context),
             "--yolo-detection-topic", yolo_detection_topic.perform(context),
             "--state-topic", state_topic.perform(context),
@@ -179,6 +182,7 @@ def generate_launch_description() -> LaunchDescription:
                 "marker_topic": marker_topic,
                 "marker_frame": marker_frame,
                 "pose_topic": pose_topic,
+                "pose_type": pose_type,
                 "yolo_detection_topic": yolo_detection_topic,
                 "own_course": own_course,
                 "course_boundary_x_m": ParameterValue(course_boundary_x, value_type=float),

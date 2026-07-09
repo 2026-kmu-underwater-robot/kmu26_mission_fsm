@@ -32,6 +32,10 @@ Start the FSM in dry-run mode:
 ros2 launch kmu26_mission_fsm mission_fsm_real.launch.py use_mission_fsm:=true dry_run:=true
 ```
 
+`dry_run` disables command output only. The FSM still needs vehicle pose for state
+transitions, relative target coordinates, and RViz/status output. The real-vehicle
+launch defaults to `pose_topic:=/odometry/filtered pose_type:=odometry`.
+
 Start the FSM with RC output after MAVROS is ready and the safety path has been checked:
 
 ```bash
@@ -46,7 +50,7 @@ ros2 launch kmu26_mission_fsm mission_fsm_real.launch.py use_pinger_homing:=true
 
 ## Main Topics
 
-- Pose input: `/mavros/local_position/pose`
+- Pose input: `/odometry/filtered` (`nav_msgs/Odometry`)
 - Arm state: `/mavros/state`
 - RC output: `/mavros/rc/override`
 - YOLO status: `/uuv_mujoco/yolo_buoy_detections`

@@ -25,6 +25,7 @@
 #include "mavros_msgs/msg/manual_control.hpp"
 #include "mavros_msgs/msg/override_rc_in.hpp"
 #include "mavros_msgs/msg/state.hpp"
+#include "nav_msgs/msg/odometry.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "std_msgs/msg/string.hpp"
 #endif
@@ -311,6 +312,7 @@ struct Options {
   bool dry_run{false};
   bool wait_armed{true};
   std::string pose_topic{"/mujoco/ground_truth/pose"};
+  std::string pose_type{"pose_stamped"};
   std::string buoy_status_topic{"/mujoco/course_buoys/status"};
   std::string yolo_detection_topic{"/uuv_mujoco/yolo_buoy_detections"};
   std::string state_topic{"/mavros/state"};
@@ -2390,6 +2392,7 @@ Options parse_args(int argc, char **argv) {
     else if (a == "--wait-armed") opt.wait_armed = true;
     else if (a == "--no-wait-armed") opt.wait_armed = false;
     else if (a == "--pose-topic") opt.pose_topic = next();
+    else if (a == "--pose-type") opt.pose_type = lower(next());
     else if (a == "--buoy-status-topic") opt.buoy_status_topic = next();
     else if (a == "--yolo-detection-topic") opt.yolo_detection_topic = next();
     else if (a == "--state-topic") opt.state_topic = next();
@@ -2464,6 +2467,8 @@ Options parse_args(int argc, char **argv) {
   opt.cfg.own_course = opt.own_course;
   if (opt.course != "a" && opt.course != "b" && opt.course != "all") opt.course = "all";
   if (opt.own_course != "a" && opt.own_course != "b") opt.own_course = "a";
+  if (opt.pose_type == "odom") opt.pose_type = "odometry";
+  if (opt.pose_type != "odometry" && opt.pose_type != "pose_stamped") opt.pose_type = "pose_stamped";
   opt.cfg.own_course = opt.own_course;
   return opt;
 }
@@ -2477,12 +2482,21 @@ class MissionNode : public rclcpp::Node {
         mission_(std::move(targets), opt.cfg, opt.max_targets),
         mission_target_count_(target_count),
         first_target_name_(std::move(first_target_name)) {
-    pose_sub_ = create_subscription<geometry_msgs::msg::PoseStamped>(
-        opt.pose_topic, 10, [this](geometry_msgs::msg::PoseStamped::SharedPtr msg) {
-          const auto &p = msg->pose.position;
-          const auto &qmsg = msg->pose.orientation;
-          pose_ = Pose{{p.x, p.y, p.z}, yaw_from_quat(qmsg.x, qmsg.y, qmsg.z, qmsg.w)};
-        });
+    if (opt.pose_type == "odometry") {
+      odom_sub_ = create_subscription<nav_msgs::msg::Odometry>(
+          opt.pose_topic, rclcpp::SensorDataQoS(), [this](nav_msgs::msg::Odometry::SharedPtr msg) {
+            const auto &p = msg->pose.pose.position;
+            const auto &qmsg = msg->pose.pose.orientation;
+            pose_ = Pose{{p.x, p.y, p.z}, yaw_from_quat(qmsg.x, qmsg.y, qmsg.z, qmsg.w)};
+          });
+    } else {
+      pose_sub_ = create_subscription<geometry_msgs::msg::PoseStamped>(
+          opt.pose_topic, rclcpp::SensorDataQoS(), [this](geometry_msgs::msg::PoseStamped::SharedPtr msg) {
+            const auto &p = msg->pose.position;
+            const auto &qmsg = msg->pose.orientation;
+            pose_ = Pose{{p.x, p.y, p.z}, yaw_from_quat(qmsg.x, qmsg.y, qmsg.z, qmsg.w)};
+          });
+    }
     buoy_sub_ = create_subscription<std_msgs::msg::String>(
         opt.buoy_status_topic, 10, [this](std_msgs::msg::String::SharedPtr msg) {
           mission_.update_live(parse_live_status(msg->data, now_seconds()));
@@ -2527,7 +2541,9 @@ class MissionNode : public rclcpp::Node {
   void tick() {
     const double now = now_seconds();
     if (!pose_) {
-      RCLCPP_INFO_THROTTLE(get_logger(), *get_clock(), 1000, "waiting for %s", opt_.pose_topic.c_str());
+      RCLCPP_INFO_THROTTLE(
+          get_logger(), *get_clock(), 1000, "waiting for %s (%s)",
+          opt_.pose_topic.c_str(), opt_.pose_type.c_str());
       write_status(std::nullopt, now, true, false);
       return;
     }
@@ -2642,6 +2658,7 @@ class MissionNode : public rclcpp::Node {
   std::string first_target_name_{"-"};
   std::ofstream csv_;
   rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr pose_sub_;
+  rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
   rclcpp::Subscription<std_msgs::msg::String>::SharedPtr buoy_sub_;
   rclcpp::Subscription<std_msgs::msg::String>::SharedPtr yolo_sub_;
   rclcpp::Subscription<mavros_msgs::msg::State>::SharedPtr state_sub_;

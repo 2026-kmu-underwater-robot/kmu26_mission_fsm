@@ -13,6 +13,7 @@
 #include <vector>
 
 #include "geometry_msgs/msg/pose_stamped.hpp"
+#include "nav_msgs/msg/odometry.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "std_msgs/msg/string.hpp"
 #include "visualization_msgs/msg/marker_array.hpp"
@@ -435,6 +436,13 @@ public:
     marker_topic_ = declare_parameter<std::string>("marker_topic", "/mission/rviz_markers");
     marker_frame_ = declare_parameter<std::string>("marker_frame", "map");
     pose_topic_ = declare_parameter<std::string>("pose_topic", "/mujoco/ground_truth/pose");
+    pose_type_ = lower_ascii(declare_parameter<std::string>("pose_type", "pose_stamped"));
+    if (pose_type_ == "odom") {
+      pose_type_ = "odometry";
+    }
+    if (pose_type_ != "odometry" && pose_type_ != "pose_stamped") {
+      pose_type_ = "pose_stamped";
+    }
     yolo_detection_topic_ =
       declare_parameter<std::string>("yolo_detection_topic", "/uuv_mujoco/yolo_buoy_detections");
     default_own_course_ = lower_ascii(declare_parameter<std::string>("own_course", "a"));
@@ -454,17 +462,31 @@ public:
 
     marker_pub_ = create_publisher<visualization_msgs::msg::MarkerArray>(
       marker_topic_, rclcpp::QoS(1).transient_local());
-    pose_sub_ = create_subscription<geometry_msgs::msg::PoseStamped>(
-      pose_topic_, rclcpp::SensorDataQoS(),
-      [this](geometry_msgs::msg::PoseStamped::SharedPtr msg) {
-        RobotPose pose;
-        pose.xyz = Vec3{
-          msg->pose.position.x,
-          msg->pose.position.y,
-          msg->pose.position.z};
-        pose.yaw = yaw_from_quaternion(msg->pose.orientation);
-        last_pose_ = pose;
-      });
+    if (pose_type_ == "odometry") {
+      odom_sub_ = create_subscription<nav_msgs::msg::Odometry>(
+        pose_topic_, rclcpp::SensorDataQoS(),
+        [this](nav_msgs::msg::Odometry::SharedPtr msg) {
+          RobotPose pose;
+          pose.xyz = Vec3{
+            msg->pose.pose.position.x,
+            msg->pose.pose.position.y,
+            msg->pose.pose.position.z};
+          pose.yaw = yaw_from_quaternion(msg->pose.pose.orientation);
+          last_pose_ = pose;
+        });
+    } else {
+      pose_sub_ = create_subscription<geometry_msgs::msg::PoseStamped>(
+        pose_topic_, rclcpp::SensorDataQoS(),
+        [this](geometry_msgs::msg::PoseStamped::SharedPtr msg) {
+          RobotPose pose;
+          pose.xyz = Vec3{
+            msg->pose.position.x,
+            msg->pose.position.y,
+            msg->pose.position.z};
+          pose.yaw = yaw_from_quaternion(msg->pose.orientation);
+          last_pose_ = pose;
+        });
+    }
     yolo_sub_ = create_subscription<std_msgs::msg::String>(
       yolo_detection_topic_, rclcpp::QoS(1),
       [this](std_msgs::msg::String::SharedPtr msg) {
@@ -479,8 +501,9 @@ public:
       [this]() { publish_markers(); });
 
     RCLCPP_INFO(
-      get_logger(), "mission RViz markers: topic=%s status=%s frame=%s yolo=%s",
+      get_logger(), "mission RViz markers: topic=%s status=%s frame=%s pose=%s(%s) yolo=%s",
       marker_topic_.c_str(), status_path_.c_str(), marker_frame_.c_str(),
+      pose_topic_.c_str(), pose_type_.c_str(),
       yolo_detection_topic_.c_str());
   }
 
@@ -1141,6 +1164,7 @@ private:
   std::string marker_topic_;
   std::string marker_frame_;
   std::string pose_topic_;
+  std::string pose_type_;
   std::string yolo_detection_topic_;
   std::string latest_yolo_text_;
   std::string default_own_course_{"a"};
@@ -1160,6 +1184,7 @@ private:
   std::optional<RobotPose> last_pose_;
   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr marker_pub_;
   rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr pose_sub_;
+  rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
   rclcpp::Subscription<std_msgs::msg::String>::SharedPtr yolo_sub_;
   rclcpp::TimerBase::SharedPtr timer_;
 };
