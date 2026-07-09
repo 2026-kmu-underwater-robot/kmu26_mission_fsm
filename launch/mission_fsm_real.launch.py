@@ -28,7 +28,7 @@ def generate_launch_description() -> LaunchDescription:
         DeclareLaunchArgument("use_mission_fsm", default_value="false"),
         DeclareLaunchArgument("use_pinger_homing", default_value="false"),
         DeclareLaunchArgument("use_mission_rviz_visualizer", default_value="true"),
-        DeclareLaunchArgument("use_rviz", default_value="true"),
+        DeclareLaunchArgument("use_rviz", default_value="false"),
         DeclareLaunchArgument("mission_status_json", default_value="/tmp/kmu26_mission_fsm_status.json"),
         DeclareLaunchArgument("scene", default_value=default_scene),
         DeclareLaunchArgument("rviz_config", default_value=default_rviz),

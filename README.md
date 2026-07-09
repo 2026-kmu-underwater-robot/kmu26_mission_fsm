@@ -20,10 +20,16 @@ source install/setup.bash
 
 ## Real-Vehicle Bringup
 
-The focused launch is conservative by default. It starts the RViz marker visualizer and RViz, but does not start autonomous control unless explicitly enabled.
+The focused launch is conservative by default. It starts the headless RViz marker visualizer, but does not start RViz or autonomous control unless explicitly enabled. This avoids Qt/X11 display failures when running on the vehicle NUC through Docker or SSH.
 
 ```bash
 ros2 launch kmu26_mission_fsm mission_fsm_real.launch.py
+```
+
+Start RViz only when running on a machine with a working display:
+
+```bash
+ros2 launch kmu26_mission_fsm mission_fsm_real.launch.py use_rviz:=true
 ```
 
 Start the FSM in dry-run mode:
