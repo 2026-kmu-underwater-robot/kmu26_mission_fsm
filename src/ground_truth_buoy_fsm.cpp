@@ -2497,16 +2497,17 @@ class MissionNode : public rclcpp::Node {
             pose_ = Pose{{p.x, p.y, p.z}, yaw_from_quat(qmsg.x, qmsg.y, qmsg.z, qmsg.w)};
           });
     }
+    const auto telemetry_qos = rclcpp::QoS(rclcpp::KeepLast(10)).best_effort();
     buoy_sub_ = create_subscription<std_msgs::msg::String>(
-        opt.buoy_status_topic, 10, [this](std_msgs::msg::String::SharedPtr msg) {
+        opt.buoy_status_topic, telemetry_qos, [this](std_msgs::msg::String::SharedPtr msg) {
           mission_.update_live(parse_live_status(msg->data, now_seconds()));
         });
     yolo_sub_ = create_subscription<std_msgs::msg::String>(
-        opt.yolo_detection_topic, rclcpp::QoS(1), [this](std_msgs::msg::String::SharedPtr msg) {
+        opt.yolo_detection_topic, telemetry_qos, [this](std_msgs::msg::String::SharedPtr msg) {
           mission_.update_yolo(parse_yolo_guidance(msg->data, now_seconds()));
         });
     state_sub_ = create_subscription<mavros_msgs::msg::State>(
-        opt.state_topic, 10, [this](mavros_msgs::msg::State::SharedPtr msg) { armed_ = msg->armed; });
+        opt.state_topic, telemetry_qos, [this](mavros_msgs::msg::State::SharedPtr msg) { armed_ = msg->armed; });
     if (opt.transport == "manual_control") {
       manual_pub_ = create_publisher<mavros_msgs::msg::ManualControl>(opt.manual_topic, 10);
     } else if (opt.transport == "command_override") {

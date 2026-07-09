@@ -27,6 +27,10 @@ JOY_TOPIC="${KMU26_JOY_TOPIC:-/joy}"
 JOY_TYPE="sensor_msgs/msg/Joy"
 BATTERY_TOPIC="${KMU26_BATTERY_TOPIC:-/battery}"
 BATTERY_TYPE="sensor_msgs/msg/BatteryState"
+CAMERA_COMPRESSED_TOPIC="${KMU26_CAMERA_COMPRESSED_TOPIC:-/camera/camera/color/image_raw/compressed}"
+CAMERA_COMPRESSED_TYPE="sensor_msgs/msg/CompressedImage"
+CAMERA_RAW_TOPIC="${KMU26_CAMERA_RAW_TOPIC:-/camera/camera/color/image_raw}"
+CAMERA_RAW_TYPE="sensor_msgs/msg/Image"
 YOLO_TOPIC="/uuv_mujoco/yolo_buoy_detections"
 YOLO_TYPE="std_msgs/msg/String"
 HYDROPHONE_DIRECTION_TOPIC="/mujoco/hydrophone/direction"
@@ -41,6 +45,8 @@ Usage: real_vehicle_preflight.sh [--build] [--no-smoke] [--no-echo]
                                  [--dvl-twist-topic TOPIC] [--depth-topic TOPIC]
                                  [--imu-topic TOPIC] [--joy-topic TOPIC]
                                  [--battery-topic TOPIC]
+                                 [--camera-compressed-topic TOPIC]
+                                 [--camera-raw-topic TOPIC]
                                  [--yolo-topic TOPIC]
                                  [--hydrophone-direction-topic TOPIC]
 
@@ -99,6 +105,16 @@ while [[ $# -gt 0 ]]; do
     --battery-topic)
       [[ $# -ge 2 ]] || { echo "[FAIL] --battery-topic requires a value"; exit 2; }
       BATTERY_TOPIC="$2"
+      shift
+      ;;
+    --camera-compressed-topic)
+      [[ $# -ge 2 ]] || { echo "[FAIL] --camera-compressed-topic requires a value"; exit 2; }
+      CAMERA_COMPRESSED_TOPIC="$2"
+      shift
+      ;;
+    --camera-raw-topic)
+      [[ $# -ge 2 ]] || { echo "[FAIL] --camera-raw-topic requires a value"; exit 2; }
+      CAMERA_RAW_TOPIC="$2"
       shift
       ;;
     --yolo-topic)
@@ -242,6 +258,24 @@ if [[ -n "$PKG_PREFIX" && -n "$PKG_SRC" ]]; then
   else
     warn "could not compare source/install launch files"
   fi
+
+  installed_gui="$PKG_PREFIX/lib/kmu26_mission_fsm/fsm_web_gui.py"
+  source_gui="$PKG_SRC/scripts/fsm_web_gui.py"
+  if [[ -f "$installed_gui" && -f "$source_gui" ]]; then
+    if cmp -s "$source_gui" "$installed_gui"; then
+      pass "installed GUI executable matches pulled source"
+    else
+      fail "installed GUI executable is stale; run: colcon build --packages-select kmu26_mission_fsm"
+    fi
+    IFS= read -r gui_shebang < "$installed_gui" || gui_shebang=""
+    if [[ "$gui_shebang" == "#!/usr/bin/python3" ]]; then
+      pass "GUI executable uses ROS system Python: /usr/bin/python3"
+    else
+      fail "GUI executable shebang is '$gui_shebang', expected /usr/bin/python3"
+    fi
+  else
+    warn "could not compare source/install GUI executable"
+  fi
 fi
 
 SHOW_ARGS=""
@@ -270,6 +304,31 @@ if [[ -n "$SHOW_ARGS" ]]; then
   check_launch_default "pose_type" "odometry"
   check_launch_default "marker_frame" "odom"
   check_launch_default "require_live_status" "false"
+fi
+
+GUI_SHOW_ARGS=""
+if [[ -n "$PKG_PREFIX" ]]; then
+  if GUI_SHOW_ARGS="$(ros2 launch kmu26_mission_fsm mission_fsm_gui.launch.py --show-args 2>&1)"; then
+    pass "GUI launch file parses"
+  else
+    fail "GUI launch file failed to parse"
+    echo "$GUI_SHOW_ARGS"
+  fi
+fi
+
+check_gui_launch_default() {
+  local name="$1"
+  local expected="$2"
+  if grep -A4 "'$name':" <<<"$GUI_SHOW_ARGS" | grep -Fq "(default: '$expected')"; then
+    pass "GUI launch default $name=$expected"
+  else
+    fail "GUI launch default $name is not $expected"
+  fi
+}
+
+if [[ -n "$GUI_SHOW_ARGS" ]]; then
+  check_gui_launch_default "camera_compressed_topic" "/camera/camera/color/image_raw/compressed"
+  check_gui_launch_default "camera_raw_topic" "/camera/camera/color/image_raw"
 fi
 
 if [[ -n "${DISPLAY:-}" ]]; then
@@ -363,6 +422,10 @@ if check_topic "$BATTERY_TOPIC" "$BATTERY_TYPE" "recommended"; then
 else
   show_topic_candidates "battery" "battery|power|voltage"
 fi
+check_topic "$CAMERA_COMPRESSED_TOPIC" "$CAMERA_COMPRESSED_TYPE" "recommended" ||
+  show_topic_candidates "camera compressed image" "camera.*image|image.*camera|compressed"
+check_topic "$CAMERA_RAW_TOPIC" "$CAMERA_RAW_TYPE" "optional" ||
+  show_topic_candidates "camera raw image" "camera.*image_raw|image_raw"
 check_topic "$YOLO_TOPIC" "$YOLO_TYPE" "optional" || show_topic_candidates "YOLO detection" "yolo|detect|vision|buoy"
 check_topic "$HYDROPHONE_DIRECTION_TOPIC" "$HYDROPHONE_DIRECTION_TYPE" "optional" ||
   show_topic_candidates "hydrophone direction" "hydro|pinger|phase|bearing|direction"

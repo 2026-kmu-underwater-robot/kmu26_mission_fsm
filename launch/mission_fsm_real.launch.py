@@ -168,6 +168,7 @@ def generate_launch_description() -> LaunchDescription:
                 "direction_topic": hydrophone_direction_topic,
                 "hydrophone_status_topic": hydrophone_status_topic,
                 "yolo_topic": yolo_detection_topic,
+                "state_topic": state_topic,
                 "command_override_topic": command_override_topic,
                 "rc_override_topic": rc_topic,
                 "mode": pinger_mode,

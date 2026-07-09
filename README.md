@@ -33,13 +33,17 @@ If the vehicle uses different topic names, pass them explicitly:
   --pose-topic /odometry/filtered \
   --state-topic /mavros/state \
   --dvl-twist-topic /dvl/twist \
-  --depth-topic /depth/pose
+  --depth-topic /depth/pose \
+  --camera-compressed-topic /camera/camera/color/image_raw/compressed \
+  --camera-raw-topic /camera/camera/color/image_raw
 ```
 
 The preflight follows the original `kmu26_auv_web_gui` real-robot contract:
 `hit25_auv_ros2 localization_test.launch.py` is the robot stack, and the GUI
 expects `/odometry/filtered`, `/dvl/twist`, `/depth/pose`,
-`/mavros/imu/data`, `/joy`, and `/battery`.
+`/mavros/imu/data`, `/joy`, `/battery`,
+`/camera/camera/color/image_raw/compressed`, and
+`/camera/camera/color/image_raw`.
 
 `FAIL` on `/odometry/filtered` or `/mavros/state` means the robot localization
 or MAVROS bringup is not visible in the current ROS graph, or the topic names do
@@ -96,7 +100,7 @@ This is separate from the MuJoCo simulator GUI and from `kmu26_auv_web_gui`.
 It is meant to operate the mission package directly.
 
 ```bash
-ros2 launch kmu26_mission_fsm mission_fsm_gui.launch.py
+ros2 launch kmu26_mission_fsm mission_fsm_gui.launch.py camera_on:=true
 ```
 
 Open:
@@ -108,15 +112,19 @@ http://127.0.0.1:8890/
 For a remote laptop, bind to the NUC network interface:
 
 ```bash
-ros2 launch kmu26_mission_fsm mission_fsm_gui.launch.py host:=0.0.0.0
+ros2 launch kmu26_mission_fsm mission_fsm_gui.launch.py host:=0.0.0.0 camera_on:=true
 ```
 
 The GUI can start/stop the mission FSM, pinger homing, RViz marker visualizer,
 and RViz. It also streams a camera from the real-vehicle compressed topic
 `/camera/camera/color/image_raw/compressed` or the raw fallback
-`/camera/image_raw`, reads `/tmp/kmu26_mission_fsm_status.json`, shows topic
-health, and stores course boundary settings in
+`/camera/camera/color/image_raw`, reads
+`/tmp/kmu26_mission_fsm_status.json`, shows topic health, and stores course
+boundary settings in
 `/tmp/kmu26_mission_fsm_gui_config.json`.
+
+If OpenCV/NumPy raw conversion is unavailable on the NUC, the compressed camera
+path still works and the GUI reports the raw conversion error in `/api/status`.
 
 RC publishing is locked by default. Enable it only on a checked bench/safety
 path:
