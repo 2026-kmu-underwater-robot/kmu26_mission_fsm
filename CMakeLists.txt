@@ -45,6 +45,7 @@ install(TARGETS
 )
 
 install(PROGRAMS
+  scripts/fsm_web_gui.py
   scripts/real_vehicle_preflight.sh
   DESTINATION lib/${PROJECT_NAME}
 )
@@ -53,6 +54,7 @@ install(DIRECTORY
   launch
   config
   rviz
+  web
   DESTINATION share/${PROJECT_NAME}
 )
 

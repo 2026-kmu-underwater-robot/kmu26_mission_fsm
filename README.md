@@ -7,6 +7,7 @@ Focused ROS 2 package for the KMU26 underwater mission controller.
 - `ground_truth_buoy_fsm`: mission FSM and RC/manual/direct command output.
 - `pinger_homing_controller`: hydrophone direction + optional YOLO final-align controller.
 - `mission_rviz_visualizer`: RViz marker publisher for FSM state, course boundary, target state, and YOLO view.
+- `fsm_web_gui.py`: dedicated FSM web GUI for mission start/stop, RViz helpers, camera preview, state, RC monitor, and course boundary setup.
 
 ## Build
 
@@ -87,6 +88,40 @@ Start pinger-only homing:
 
 ```bash
 ros2 launch kmu26_mission_fsm mission_fsm_real.launch.py use_pinger_homing:=true
+```
+
+## Dedicated FSM GUI
+
+This is separate from the MuJoCo simulator GUI and from `kmu26_auv_web_gui`.
+It is meant to operate the mission package directly.
+
+```bash
+ros2 launch kmu26_mission_fsm mission_fsm_gui.launch.py
+```
+
+Open:
+
+```text
+http://127.0.0.1:8890/
+```
+
+For a remote laptop, bind to the NUC network interface:
+
+```bash
+ros2 launch kmu26_mission_fsm mission_fsm_gui.launch.py host:=0.0.0.0
+```
+
+The GUI can start/stop the mission FSM, pinger homing, RViz marker visualizer,
+and RViz. It also streams a camera from `/camera/image_raw/compressed` or
+`/camera/image_raw`, reads `/tmp/kmu26_mission_fsm_status.json`, shows topic
+health, and stores course boundary settings in
+`/tmp/kmu26_mission_fsm_gui_config.json`.
+
+RC publishing is locked by default. Enable it only on a checked bench/safety
+path:
+
+```bash
+ros2 launch kmu26_mission_fsm mission_fsm_gui.launch.py allow_rc_send:=true
 ```
 
 ## Main Topics
