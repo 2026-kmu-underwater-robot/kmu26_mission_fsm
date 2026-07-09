@@ -112,7 +112,8 @@ ros2 launch kmu26_mission_fsm mission_fsm_gui.launch.py host:=0.0.0.0
 ```
 
 The GUI can start/stop the mission FSM, pinger homing, RViz marker visualizer,
-and RViz. It also streams a camera from `/camera/image_raw/compressed` or
+and RViz. It also streams a camera from the real-vehicle compressed topic
+`/camera/camera/color/image_raw/compressed` or the raw fallback
 `/camera/image_raw`, reads `/tmp/kmu26_mission_fsm_status.json`, shows topic
 health, and stores course boundary settings in
 `/tmp/kmu26_mission_fsm_gui_config.json`.

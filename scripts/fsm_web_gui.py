@@ -734,7 +734,7 @@ def parse_args() -> tuple[argparse.Namespace, list[str]]:
     parser.add_argument("--imu-topic", default="/mavros/imu/data")
     parser.add_argument("--joy-topic", default="/joy")
     parser.add_argument("--battery-topic", default="/battery")
-    parser.add_argument("--camera-compressed-topic", default="/camera/image_raw/compressed")
+    parser.add_argument("--camera-compressed-topic", default="/camera/camera/color/image_raw/compressed")
     parser.add_argument("--camera-raw-topic", default="/camera/image_raw")
     parser.add_argument("--yolo-detection-topic", default="/uuv_mujoco/yolo_buoy_detections")
     parser.add_argument("--camera-on", action="store_true")

@@ -30,7 +30,7 @@ def generate_launch_description() -> LaunchDescription:
         DeclareLaunchArgument("imu_topic", default_value="/mavros/imu/data"),
         DeclareLaunchArgument("joy_topic", default_value="/joy"),
         DeclareLaunchArgument("battery_topic", default_value="/battery"),
-        DeclareLaunchArgument("camera_compressed_topic", default_value="/camera/image_raw/compressed"),
+        DeclareLaunchArgument("camera_compressed_topic", default_value="/camera/camera/color/image_raw/compressed"),
         DeclareLaunchArgument("camera_raw_topic", default_value="/camera/image_raw"),
         DeclareLaunchArgument("yolo_detection_topic", default_value="/uuv_mujoco/yolo_buoy_detections"),
         DeclareLaunchArgument("camera_on", default_value="false"),
