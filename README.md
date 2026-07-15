@@ -1,11 +1,29 @@
 # KMU26 AUV Control
 
-이 저장소는 역할이 겹치지 않는 ROS 2 패키지 두 개만 관리한다.
+이 저장소는 역할이 겹치지 않는 ROS 2 패키지 두 개만 관리한다. 하이드로폰
+신호처리 코드는 이 저장소에 포함하지 않고 별도 팀 포크를 sibling Git 저장소로
+가져온다.
 
 ```text
 kmu26_pinger_homing/       완성된 하이드로폰 핑거 호밍 + RC + Web GUI
 kmu26_vision_mission_fsm/  시험 중인 YOLO/비전 제어 + 미션 FSM
+hydrophone.repos           별도 hydrophone Git 저장소와 검증 커밋
 ```
+
+NUC의 최종 소스 경계는 다음과 같다.
+
+```text
+~/auv_ws/src/
+├── kmu26_mission_fsm/              # 이 Git 저장소
+│   ├── kmu26_pinger_homing/        # 차량측 RC 제어·mux·GUI ROS 패키지
+│   └── kmu26_vision_mission_fsm/   # 비전 FSM ROS 패키지
+└── kmu26_auv_hydrophone/           # 별도 Git 저장소, 신호처리 ROS 패키지들
+    ├── audio_common/
+    ├── audio_common_msgs/
+    └── audio_capture/
+```
+
+`kmu26_auv_hydrophone`을 `kmu26_pinger_homing` 안에 복사하거나 중첩 clone하지 않는다.
 
 ## 설치
 
@@ -15,7 +33,7 @@ cd ~/auv_ws/src
 git clone https://github.com/2026-kmu-underwater-robot/kmu26_mission_fsm.git
 git clone https://github.com/2026-kmu-underwater-robot/kmu26_auv.git
 cd ~/auv_ws
-vcs import src < src/kmu26_mission_fsm/kmu26_pinger_homing/hydrophone_fork.repos
+vcs import src < src/kmu26_mission_fsm/hydrophone.repos
 rosdep install --from-paths src --ignore-src -r -y
 colcon build --symlink-install \
   --packages-up-to kmu26_pinger_homing kmu26_vision_mission_fsm

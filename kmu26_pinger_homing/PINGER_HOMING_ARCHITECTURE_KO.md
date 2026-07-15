@@ -21,9 +21,10 @@ rc_override_mux
   -> /mavros/rc/override
 ```
 
-하이드로폰 의존성은 `hydrophone_fork.repos`에 공개 upstream URL과 검증 커밋
-`64ccbadad903b6d5b40f641996ce6fe91fd1f69d`로 고정한다. 하이드로폰 추정 알고리즘을
-FSM 안으로 복사하거나 수정하지 않는다.
+하이드로폰 의존성은 저장소 최상위 `hydrophone.repos`에 팀 포크 URL과 검증 커밋
+`64ccbadad903b6d5b40f641996ce6fe91fd1f69d`로 고정한다. `vcs import`는 이를
+`src/kmu26_auv_hydrophone` sibling Git 저장소로 가져온다. 하이드로폰 추정 알고리즘을
+FSM 또는 `kmu26_pinger_homing` 안으로 복사하거나 수정하지 않는다.
 
 ## 기존 알고리즘에 추가한 차량 제어 코드
 
@@ -71,7 +72,7 @@ WAIT_VEHICLE -> PROBE <-> REPROBE -> ALIGN <-> APPROACH -> CONTACT -> COMPLETE
 ## 빌드 및 실행
 
 ```bash
-vcs import src < src/kmu26_mission_fsm/kmu26_pinger_homing/hydrophone_fork.repos
+vcs import src < src/kmu26_mission_fsm/hydrophone.repos
 rosdep install --from-paths src --ignore-src -r -y
 colcon build --packages-select \
   audio_common_msgs audio_capture kmu26_pinger_homing

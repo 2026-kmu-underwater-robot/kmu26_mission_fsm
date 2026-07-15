@@ -1,7 +1,8 @@
 # KMU26 Pinger Homing
 
-실물 핑거 근방까지 자율 접근하는 전용 ROS 2 패키지다. 원본 하이드로폰 추정 알고리즘은
-`hydrophone_fork.repos`의 고정 커밋으로 가져오며 이 패키지는 알고리즘을 복제하지 않는다.
+실물 핑거 근방까지 자율 접근하는 전용 ROS 2 패키지다. 하이드로폰 추정 알고리즘은
+저장소 최상위 `hydrophone.repos`에 고정된 별도 팀 Git 포크에서 가져오며 이 패키지는
+알고리즘을 복제하지 않는다.
 비전/부표 FSM과 `CollectorState`는 사용하지 않는다.
 
 구성:
@@ -21,7 +22,7 @@
 - 조이스틱 RC mux 입력: `/control/joystick/rc_override`
 
 ```bash
-vcs import src < src/kmu26_mission_fsm/kmu26_pinger_homing/hydrophone_fork.repos
+vcs import src < src/kmu26_mission_fsm/hydrophone.repos
 colcon build --symlink-install --packages-up-to kmu26_pinger_homing
 source install/setup.bash
 ros2 launch kmu26_pinger_homing pinger_homing_real.launch.py dry_run:=true tank_max_depth_m:=2.0

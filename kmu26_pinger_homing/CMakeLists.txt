@@ -44,11 +44,16 @@ if(BUILD_TESTING)
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test/test_pinger_rc_pipeline_runtime.py
       --controller ${CMAKE_CURRENT_SOURCE_DIR}/src/pinger_homing/single_hydrophone_homing_controller.py
       --mux $<TARGET_FILE:rc_override_mux>)
+  add_test(
+    NAME pinger_hydrophone_repository_boundary
+    COMMAND ${Python3_EXECUTABLE}
+      ${CMAKE_CURRENT_SOURCE_DIR}/test/test_repository_boundaries.py)
   set_tests_properties(single_hydrophone_homing_math PROPERTIES TIMEOUT 30)
   set_tests_properties(pinger_homing_dry_run PROPERTIES TIMEOUT 15)
   set_tests_properties(pinger_homing_live_runtime PROPERTIES TIMEOUT 15)
   set_tests_properties(rc_override_mux_runtime PROPERTIES TIMEOUT 15)
   set_tests_properties(pinger_rc_pipeline_runtime PROPERTIES TIMEOUT 15)
+  set_tests_properties(pinger_hydrophone_repository_boundary PROPERTIES TIMEOUT 10)
 endif()
 
 install(TARGETS rc_override_mux DESTINATION lib/${PROJECT_NAME})
@@ -67,7 +72,6 @@ install(FILES
 
 install(FILES
   PINGER_HOMING_ARCHITECTURE_KO.md
-  hydrophone_fork.repos
   DESTINATION share/${PROJECT_NAME})
 
 install(DIRECTORY launch web_gui/web DESTINATION share/${PROJECT_NAME})
