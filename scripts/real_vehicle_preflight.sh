@@ -31,10 +31,15 @@ CAMERA_COMPRESSED_TOPIC="${KMU26_CAMERA_COMPRESSED_TOPIC:-/camera/camera/color/i
 CAMERA_COMPRESSED_TYPE="sensor_msgs/msg/CompressedImage"
 CAMERA_RAW_TOPIC="${KMU26_CAMERA_RAW_TOPIC:-/camera/camera/color/image_raw}"
 CAMERA_RAW_TYPE="sensor_msgs/msg/Image"
-YOLO_TOPIC="/uuv_mujoco/yolo_buoy_detections"
-YOLO_TYPE="std_msgs/msg/String"
-HYDROPHONE_DIRECTION_TOPIC="/mujoco/hydrophone/direction"
+YOLO_TOPIC="/vision/buoy_observation"
+YOLO_TYPE="hit25_auv_ros2_msg/msg/BuoyObservation"
+HYDROPHONE_DIRECTION_TOPIC="/homing/direction"
 HYDROPHONE_DIRECTION_TYPE="geometry_msgs/msg/Vector3Stamped"
+AUDIO_TOPIC="${KMU26_AUDIO_TOPIC:-/audio}"
+AUDIO_TYPE="audio_common_msgs/msg/AudioData"
+PHASE_DELTA_TOPIC="/audio_phase_estimator/delta_range_m"
+IQ_MAGNITUDE_TOPIC="/audio_phase_estimator/iq_magnitude"
+ACOUSTIC_SCALAR_TYPE="std_msgs/msg/Float64"
 
 usage() {
   cat <<'EOF'
@@ -429,6 +434,12 @@ check_topic "$CAMERA_RAW_TOPIC" "$CAMERA_RAW_TYPE" "optional" ||
 check_topic "$YOLO_TOPIC" "$YOLO_TYPE" "optional" || show_topic_candidates "YOLO detection" "yolo|detect|vision|buoy"
 check_topic "$HYDROPHONE_DIRECTION_TOPIC" "$HYDROPHONE_DIRECTION_TYPE" "optional" ||
   show_topic_candidates "hydrophone direction" "hydro|pinger|phase|bearing|direction"
+check_topic "$AUDIO_TOPIC" "$AUDIO_TYPE" "recommended" ||
+  show_topic_candidates "hydrophone audio" "audio|hydro|microphone"
+check_topic "$PHASE_DELTA_TOPIC" "$ACOUSTIC_SCALAR_TYPE" "optional" ||
+  show_topic_candidates "hydrophone phase range delta" "delta_range|phase"
+check_topic "$IQ_MAGNITUDE_TOPIC" "$ACOUSTIC_SCALAR_TYPE" "optional" ||
+  show_topic_candidates "hydrophone coherent-IQ magnitude" "iq_magnitude|magnitude"
 if ! grep -Fq "/mujoco/course_buoys/status [std_msgs/msg/String]" <<<"$TOPICS"; then
   pass "MuJoCo buoy status is absent; OK because require_live_status default is false"
 fi
