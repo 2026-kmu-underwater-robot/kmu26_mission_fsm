@@ -26,7 +26,7 @@ rc_override_mux
   -> /mavros/rc/override
 ```
 
-하이드로폰 의존성은 `hydrophone_fork.repos`에 팀 포크 URL과 검증 커밋
+하이드로폰 의존성은 `hydrophone_fork.repos`에 공개 upstream URL과 검증 커밋
 `64ccbadad903b6d5b40f641996ce6fe91fd1f69d`로 고정한다. 하이드로폰 추정 알고리즘을
 FSM 안으로 복사하거나 수정하지 않는다.
 
