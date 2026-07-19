@@ -16,8 +16,10 @@ EXPECTED_HYDROPHONE_URL = (
 
 def main() -> int:
     package_root = Path(__file__).resolve().parents[1]
-    repository_root = package_root.parent
-    manifest_path = repository_root / "hydrophone.repos"
+    # The Git root is intentionally the ROS package root.  Keeping this
+    # identical avoids a clone/src/kmu26_pinger_homing/kmu26_pinger_homing
+    # double directory while retaining the external hydrophone boundary.
+    manifest_path = package_root / "hydrophone.repos"
 
     assert manifest_path.is_file(), "root hydrophone.repos is missing"
     manifest = yaml.safe_load(manifest_path.read_text(encoding="utf-8"))
@@ -34,7 +36,11 @@ def main() -> int:
     }
     assert not forbidden_directories.intersection(nested_directories)
     assert not list(package_root.rglob("audio_phase_estimator.cpp"))
-    assert not list(package_root.rglob(".git"))
+    nested_git_dirs = [
+        path for path in package_root.rglob(".git")
+        if path != package_root / ".git"
+    ]
+    assert not nested_git_dirs
 
     package_xml = (package_root / "package.xml").read_text(encoding="utf-8")
     assert "<exec_depend>audio_capture</exec_depend>" in package_xml

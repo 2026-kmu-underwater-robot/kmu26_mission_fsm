@@ -22,7 +22,7 @@
 - 조이스틱 RC mux 입력: `/control/joystick/rc_override`
 
 ```bash
-vcs import src < src/kmu26_mission_fsm/hydrophone.repos
+vcs import src < src/kmu26_pinger_homing/hydrophone.repos
 colcon build --symlink-install --packages-up-to kmu26_pinger_homing
 source install/setup.bash
 ros2 launch kmu26_pinger_homing pinger_homing_real_interactive.launch.py \

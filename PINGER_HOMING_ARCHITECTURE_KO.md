@@ -12,7 +12,7 @@
     -> /audio_phase_estimator/iq_magnitude
     -> /homing/direction
 
-kmu26_pinger_homing/src/pinger_homing/pinger_homing_controller.cpp
+src/pinger_homing/pinger_homing_controller.cpp
   위 추정 결과 + /odometry/filtered + /mavros/state
     -> 능동 위치 추정 및 접근 RC
     -> /control/pinger/rc_override
@@ -72,7 +72,7 @@ WAIT_VEHICLE -> PROBE <-> REPROBE -> ALIGN <-> APPROACH -> CONTACT -> COMPLETE
 ## 빌드 및 실행
 
 ```bash
-vcs import src < src/kmu26_mission_fsm/hydrophone.repos
+vcs import src < src/kmu26_pinger_homing/hydrophone.repos
 rosdep install --from-paths src --ignore-src -r -y
 colcon build --packages-select \
   audio_common_msgs audio_capture kmu26_pinger_homing

@@ -1,26 +1,32 @@
 # KMU26 AUV Control
 
-이 저장소는 핑거 호밍에 필요한 ROS 2 패키지만 관리한다. 2-D Phase/SNR 주파수 선택기,
-오디오 추정기, RC 제어기는 모두 `kmu26_pinger_homing` 패키지 안에 통합되어 있다.
+이 저장소 자체가 핑거 호밍 ROS 2 패키지 `kmu26_pinger_homing`이다. 2-D Phase/SNR 주파수
+선택기, 오디오 추정기, RC 제어기는 모두 이 루트 패키지에 통합되어 있다.
 비전 미션 FSM은 작업공간의 `archive/kmu26_vision_mission_fsm`으로 분리되어
 기본 빌드와 실행에 포함되지 않는다.
 
 ```text
-kmu26_pinger_homing/       Phase/SNR 핑거 호밍 + RC + Web GUI
+package.xml                 ROS package manifest
+CMakeLists.txt              ROS package build definition
+launch/                     Phase/SNR/interactive launch files
+src/                        C++ controller and frequency selector
+web_gui/                    Pinger web GUI
 ```
 
 NUC의 최종 소스 경계는 다음과 같다.
 
 ```text
 ~/auv_ws/src/
-├── kmu26_pinger_homing/            # 이 Git 저장소
-│   ├── kmu26_pinger_homing/        # 차량측 RC 제어·mux·GUI ROS 패키지
-│   └── (2-D Phase/SNR 호밍도 이 패키지 안에 통합)
-└── archive/kmu26_vision_mission_fsm/  # src 밖의 보관본
-└── kmu26_auv_hydrophone/           # 별도 Git 저장소, 신호처리 ROS 패키지들
+├── kmu26_pinger_homing/            # 이 Git 저장소 = ROS package root
+│   ├── package.xml
+│   ├── launch/
+│   ├── src/
+│   └── web_gui/
+├── kmu26_auv_hydrophone/           # 별도 Git 저장소, 신호처리 ROS 패키지들
     ├── audio_common/
     ├── audio_common_msgs/
     └── audio_capture/
+└── archive/kmu26_vision_mission_fsm/  # src 밖의 보관본
 ```
 
 `kmu26_auv_hydrophone`을 이 저장소 안에 복사하거나 중첩 clone하지 않는다.
@@ -30,7 +36,8 @@ NUC의 최종 소스 경계는 다음과 같다.
 ```bash
 mkdir -p ~/auv_ws/src
 cd ~/auv_ws/src
-git clone --branch main https://github.com/2026-kmu-underwater-robot/kmu26_pinger_homing.git
+git clone --branch main https://github.com/2026-kmu-underwater-robot/kmu26_auv_pinger_homing.git kmu26_pinger_homing
+vcs import src < src/kmu26_pinger_homing/hydrophone.repos
 git clone https://github.com/2026-kmu-underwater-robot/kmu26_auv.git
 cd ~/auv_ws
 rosdep install --from-paths src --ignore-src -r -y
@@ -38,6 +45,12 @@ colcon build --symlink-install \
   --packages-up-to kmu26_pinger_homing
 source install/setup.bash
 ```
+
+이제 clone 직후 실제 패키지 경로는
+`~/auv_ws/src/kmu26_pinger_homing` 하나뿐이다. 예전의
+`~/auv_ws/src/kmu26_pinger_homing/kmu26_pinger_homing` 경로는 사용하지 않는다.
+
+세부 Phase/FFT 판정 기준은 [PINGER_HOMING.md](PINGER_HOMING.md)를 참고한다.
 
 `hit25_auv_ros2`가 사용하는 팀 `dvl_msgs` 패키지도 실물 ROS 작업공간에 있어야 한다.
 
