@@ -15,6 +15,25 @@ ros2 launch kmu26_pinger_homing pinger_homing_test_tank.launch.py "$@" auto_sele
 launch_pid=$!
 
 echo "[pinger] Waiting for the five-second frequency scan..."
+wait_for_candidate_topic() {
+  local deadline=$((SECONDS + 30))
+  while (( SECONDS < deadline )); do
+    if ros2 topic list 2>/dev/null | grep -Fxq "/pinger_homing/frequency_candidates"; then
+      return 0
+    fi
+    sleep 0.2
+  done
+  return 1
+}
+
+# `ros2 topic echo` exits immediately when its target has not yet been
+# advertised.  The selector is launched in parallel, so wait for discovery
+# first; only then wait for the five-second scan result.
+if ! wait_for_candidate_topic; then
+  echo "[pinger] Frequency selector did not advertise its candidate topic within 30 seconds." >&2
+  exit 1
+fi
+
 if ! timeout 30 ros2 topic echo --once /pinger_homing/frequency_candidates; then
   echo "[pinger] No frequency candidates arrived within 30 seconds." >&2
   exit 1

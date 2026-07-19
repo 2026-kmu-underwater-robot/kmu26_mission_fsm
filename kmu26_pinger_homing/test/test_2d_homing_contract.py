@@ -25,6 +25,14 @@ def test_frequency_selection_contract():
     assert '"/pinger_homing/manual_selection"' in selector
 
 
+def test_manual_selection_wrapper_waits_for_ros_discovery():
+    wrapper = (ROOT / "scripts" / "start_pinger_homing_test_tank.sh").read_text()
+    assert "wait_for_candidate_topic" in wrapper
+    assert 'grep -Fxq "/pinger_homing/frequency_candidates"' in wrapper
+    assert 'ros2 topic echo --once /pinger_homing/frequency_candidates' in wrapper
+    assert "manual_selection" in wrapper
+
+
 def test_xy_only_controller():
     text = (ROOT / "src" / "pinger_homing_2d_controller.cpp").read_text()
     assert "direction_world_->y()" in text
