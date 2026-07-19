@@ -13,14 +13,14 @@
 #include <rclcpp/rclcpp.hpp>
 #include <std_msgs/msg/float64.hpp>
 
-namespace kmu26_finger_homing {
+namespace kmu26_pinger_homing {
 
 class FingerAudioEstimator final : public rclcpp::Node {
  public:
   FingerAudioEstimator() : Node("pinger_audio_estimator") {
     audio_topic_ = declare_parameter<std::string>("audio_topic", "/audio");
     selected_topic_ = declare_parameter<std::string>(
-        "selected_frequency_topic", "/finger_homing/selected_frequency_hz");
+        "selected_frequency_topic", "/pinger_homing/selected_frequency_hz");
     sample_rate_ = declare_parameter<int>("sample_rate", 96000);
     channels_ = std::max(1, static_cast<int>(declare_parameter<int>("channels", 2)));
     channel_index_ = std::clamp(static_cast<int>(declare_parameter<int>("channel_index", 0)), 0, channels_ - 1);
@@ -33,13 +33,13 @@ class FingerAudioEstimator final : public rclcpp::Node {
     selected_frequency_ = !require_selection_;
 
     delta_range_pub_ = create_publisher<std_msgs::msg::Float64>(
-        "/finger_homing/delta_range_m", 20);
+        "/pinger_homing/delta_range_m", 20);
     iq_pub_ = create_publisher<std_msgs::msg::Float64>(
-        "/finger_homing/iq_magnitude", 20);
+        "/pinger_homing/iq_magnitude", 20);
     snr_pub_ = create_publisher<std_msgs::msg::Float64>(
-        "/finger_homing/iq_snr_db", 20);
+        "/pinger_homing/iq_snr_db", 20);
     snr_stamped_pub_ = create_publisher<audio_common_msgs::msg::Float64Stamped>(
-        "/finger_homing/iq_snr_db_stamped", 20);
+        "/pinger_homing/iq_snr_db_stamped", 20);
     selected_sub_ = create_subscription<std_msgs::msg::Float64>(
         selected_topic_, rclcpp::QoS(1).transient_local(),
         [this](const std_msgs::msg::Float64::SharedPtr msg) {
@@ -164,11 +164,11 @@ class FingerAudioEstimator final : public rclcpp::Node {
   rclcpp::Publisher<audio_common_msgs::msg::Float64Stamped>::SharedPtr snr_stamped_pub_;
 };
 
-}  // namespace kmu26_finger_homing
+}  // namespace kmu26_pinger_homing
 
 int main(int argc, char **argv) {
   rclcpp::init(argc, argv);
-  rclcpp::spin(std::make_shared<kmu26_finger_homing::FingerAudioEstimator>());
+  rclcpp::spin(std::make_shared<kmu26_pinger_homing::FingerAudioEstimator>());
   rclcpp::shutdown();
   return 0;
 }

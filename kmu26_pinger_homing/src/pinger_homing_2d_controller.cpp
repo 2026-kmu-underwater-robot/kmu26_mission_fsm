@@ -19,7 +19,7 @@
 #include <std_msgs/msg/float64.hpp>
 #include <std_msgs/msg/string.hpp>
 
-namespace kmu26_finger_homing {
+namespace kmu26_pinger_homing {
 
 class FingerHomingController final : public rclcpp::Node {
  public:
@@ -34,7 +34,7 @@ class FingerHomingController final : public rclcpp::Node {
     rc_topic_ = declare_parameter<std::string>(
         "rc_output_topic", "/control/pinger/rc_override");
     selected_topic_ = declare_parameter<std::string>(
-        "selected_frequency_topic", "/finger_homing/selected_frequency_hz");
+        "selected_frequency_topic", "/pinger_homing/selected_frequency_hz");
     required_mode_ = declare_parameter<std::string>("required_vehicle_mode", "ALT_HOLD");
     rc_span_ = std::clamp(declare_parameter<double>("rc_pwm_span", 400.0), 50.0, 700.0);
     probe_command_ = std::clamp(declare_parameter<double>("probe_command", 0.20), 0.05, 0.45);
@@ -58,9 +58,9 @@ class FingerHomingController final : public rclcpp::Node {
     dry_run_ = declare_parameter<bool>("dry_run", false);
 
     rc_pub_ = create_publisher<mavros_msgs::msg::OverrideRCIn>(rc_topic_, 10);
-    status_pub_ = create_publisher<std_msgs::msg::String>("/finger_homing/status", 10);
+    status_pub_ = create_publisher<std_msgs::msg::String>("/pinger_homing/status", 10);
     direction_pub_ = create_publisher<geometry_msgs::msg::Vector3Stamped>(
-        "/finger_homing/direction", 10);
+        "/pinger_homing/direction", 10);
     odom_sub_ = create_subscription<nav_msgs::msg::Odometry>(
         odom_topic_, rclcpp::SensorDataQoS(),
         [this](const nav_msgs::msg::Odometry::SharedPtr msg) { on_odom(*msg); });
@@ -79,13 +79,13 @@ class FingerHomingController final : public rclcpp::Node {
           }
         });
     delta_sub_ = create_subscription<std_msgs::msg::Float64>(
-        "/finger_homing/delta_range_m", 30,
+        "/pinger_homing/delta_range_m", 30,
         [this](const std_msgs::msg::Float64::SharedPtr msg) { on_delta(msg->data); });
     iq_sub_ = create_subscription<std_msgs::msg::Float64>(
-        "/finger_homing/iq_magnitude", 30,
+        "/pinger_homing/iq_magnitude", 30,
         [this](const std_msgs::msg::Float64::SharedPtr msg) { if (std::isfinite(msg->data)) iq_=msg->data; });
     snr_sub_ = create_subscription<std_msgs::msg::Float64>(
-        "/finger_homing/iq_snr_db", 30,
+        "/pinger_homing/iq_snr_db", 30,
         [this](const std_msgs::msg::Float64::SharedPtr msg) { on_snr(msg->data); });
     timer_ = create_wall_timer(std::chrono::milliseconds(33), [this]() { tick(); });
     state_started_ = std::chrono::steady_clock::now();
@@ -333,11 +333,11 @@ class FingerHomingController final : public rclcpp::Node {
   rclcpp::TimerBase::SharedPtr timer_;
 };
 
-}  // namespace kmu26_finger_homing
+}  // namespace kmu26_pinger_homing
 
 int main(int argc, char **argv) {
   rclcpp::init(argc, argv);
-  rclcpp::spin(std::make_shared<kmu26_finger_homing::FingerHomingController>());
+  rclcpp::spin(std::make_shared<kmu26_pinger_homing::FingerHomingController>());
   rclcpp::shutdown();
   return 0;
 }

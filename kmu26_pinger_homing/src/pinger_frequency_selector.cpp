@@ -18,16 +18,16 @@
 #include <std_msgs/msg/float64.hpp>
 #include <std_msgs/msg/string.hpp>
 
-namespace kmu26_finger_homing {
+namespace kmu26_pinger_homing {
 
 class FingerFrequencySelector final : public rclcpp::Node {
  public:
   FingerFrequencySelector() : Node("pinger_frequency_selector") {
     audio_topic_ = declare_parameter<std::string>("audio_topic", "/audio");
     selected_topic_ = declare_parameter<std::string>(
-        "selected_frequency_topic", "/finger_homing/selected_frequency_hz");
+        "selected_frequency_topic", "/pinger_homing/selected_frequency_hz");
     candidate_topic_ = declare_parameter<std::string>(
-        "candidate_topic", "/finger_homing/frequency_candidates");
+        "candidate_topic", "/pinger_homing/frequency_candidates");
     sample_rate_ = declare_parameter<int>("sample_rate", 96000);
     channels_ = std::max(1, static_cast<int>(declare_parameter<int>("channels", 2)));
     channel_index_ = std::clamp(static_cast<int>(declare_parameter<int>("channel_index", 0)), 0, channels_ - 1);
@@ -192,11 +192,11 @@ class FingerFrequencySelector final : public rclcpp::Node {
   rclcpp::TimerBase::SharedPtr timer_;
 };
 
-}  // namespace kmu26_finger_homing
+}  // namespace kmu26_pinger_homing
 
 int main(int argc, char **argv) {
   rclcpp::init(argc, argv);
-  rclcpp::spin(std::make_shared<kmu26_finger_homing::FingerFrequencySelector>());
+  rclcpp::spin(std::make_shared<kmu26_pinger_homing::FingerFrequencySelector>());
   rclcpp::shutdown();
   return 0;
 }

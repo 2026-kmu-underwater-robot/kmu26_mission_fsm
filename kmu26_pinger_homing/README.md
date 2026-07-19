@@ -52,7 +52,7 @@ GUI와 launch는 자동 아밍하지 않는다. odometry, audio, MAVROS state가
 
 `pinger_homing_test_tank.launch.py`는 이 패키지에 포함된 주파수 선택기,
 오디오 IQ/Phase 추정기, 2-D ALT_HOLD RC 제어기를 함께 실행한다. 별도의
-`kmu26_finger_homing` 패키지는 사용하지 않는다.
+별도 finger 패키지는 사용하지 않는다.
 
 ```bash
 ros2 launch kmu26_pinger_homing pinger_homing_test_tank.launch.py \
