@@ -35,10 +35,11 @@ def test_xy_alt_hold_does_not_require_depth_for_a_heave_free_probe() -> None:
     assert "no_odom_horizontal_only_ && !no_odom_vertical_control_enabled_" in controller
 
 
-def test_real_wrapper_scans_then_injects_selected_startup_frequency() -> None:
-    wrapper = (ROOT / "scripts" / "start_pinger_homing_real.sh").read_text()
-    assert 'pinger_frequency_selector' in wrapper
-    assert 'candidate_topic=' in wrapper
-    assert 'manual_selection_topic:=' in wrapper
-    assert 'reference_frequency_hz:=${selected_hz}' in wrapper
-    assert 'use_audio_capture:=true cannot scan before capture exists' in wrapper
+def test_interactive_launch_scans_then_injects_selected_startup_frequency() -> None:
+    launch = (ROOT / "launch" / "pinger_homing_real_interactive.launch.py").read_text()
+    assert 'executable="pinger_frequency_selector"' in launch
+    assert "OpaqueFunction(function=_start_real_homing_after_selection)" in launch
+    assert '"selected_frequency_topic"' in launch
+    assert 'launch_arguments["reference_frequency_hz"]' in launch
+    assert 'launch_arguments["use_audio_capture"] = "false"' in launch
+    assert not (ROOT / "scripts" / "start_pinger_homing_real.sh").exists()

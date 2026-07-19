@@ -1,0 +1,278 @@
+#!/usr/bin/env python3
+"""Interactive physical Phase-homing entry point.
+
+This is deliberately a *launch* entry point, not a shell wrapper.  It starts
+the C++ five-second frequency scanner on the already available audio stream.
+The operator enters a displayed candidate number (or a frequency in Hz) in
+the same terminal.  Only then is the untouched external phase estimator
+started, with the selection as its immutable startup frequency, followed by
+the canonical C++ RC controller.
+
+The original hydrophone estimator has no selected-frequency subscription, so
+delaying its process start is the correct contract: a selection cannot race an
+already active Phase accumulator or modify the hydrophone algorithm.
+"""
+
+from __future__ import annotations
+
+import json
+import time
+from pathlib import Path
+
+from ament_index_python.packages import get_package_share_directory
+from launch import LaunchDescription
+from launch.actions import (
+    DeclareLaunchArgument,
+    IncludeLaunchDescription,
+    LogInfo,
+    OpaqueFunction,
+    TimerAction,
+)
+from launch.conditions import IfCondition
+from launch.launch_description_sources import PythonLaunchDescriptionSource
+from launch.substitutions import LaunchConfiguration
+from launch_ros.actions import Node
+from launch_ros.parameter_descriptions import ParameterValue
+
+
+# Arguments owned by the non-interactive real launch.  The selected frequency
+# replaces only reference_frequency_hz; every other vehicle contract and
+# motion parameter is forwarded unchanged after the operator's choice.
+_REAL_ARGUMENTS = (
+    "dry_run",
+    "use_hydrophone_estimator",
+    "use_rc_mux",
+    "audio_device",
+    "audio_topic",
+    "audio_channels",
+    "audio_sample_rate",
+    "audio_sample_format",
+    "odometry_topic",
+    "imu_topic",
+    "depth_topic",
+    "state_topic",
+    "delta_range_topic",
+    "iq_magnitude_topic",
+    "direction_topic",
+    "status_topic",
+    "direction_output_topic",
+    "pinger_rc_topic",
+    "rc_topic",
+    "rate_hz",
+    "mode",
+    "auto_arm",
+    "auto_mode",
+    "forward_max",
+    "yaw_gain",
+    "yaw_command_limit",
+    "tank_max_depth_m",
+    "success_range_m",
+    "success_hold_s",
+    "arrival_radius_m",
+    "arrival_hold_s",
+    "max_runtime_s",
+    "amplitude_range_constant",
+    "rc_mux_stale_timeout",
+    "rc_pwm_span",
+    "probe_pwm_delta",
+    "approach_pwm_delta",
+    "probe_leg_s",
+    "probe_neutral_s",
+    "probe_settle_s",
+    "probe_sample_delay_s",
+    "approach_duration_s",
+    "initial_confirmation_probes",
+)
+
+
+def _start_real_homing_after_selection(context, *args, **kwargs):
+    """Wait for the selector's volatile choice then include the real launch."""
+    del args, kwargs
+    import rclpy
+    from rclpy.qos import DurabilityPolicy, QoSProfile
+    from std_msgs.msg import Float64, String
+
+    selected_topic = LaunchConfiguration("selected_frequency_topic").perform(context)
+    candidate_topic = LaunchConfiguration("candidate_topic").perform(context)
+    manual_selection_topic = LaunchConfiguration("manual_selection_topic").perform(context)
+    timeout_s = float(LaunchConfiguration("selection_timeout_s").perform(context))
+    selected_frequency: list[float] = []
+    candidates: list[str] = []
+
+    rclpy.init(args=None)
+    gate = rclpy.create_node("pinger_frequency_launch_gate")
+    # The candidate list is transient-local: the gate can reliably receive it
+    # even if terminal output is busy when the five-second scan finishes.
+    candidate_qos = QoSProfile(depth=1, durability=DurabilityPolicy.TRANSIENT_LOCAL)
+    gate.create_subscription(String, candidate_topic, lambda message: candidates.append(message.data), candidate_qos)
+    gate.create_subscription(
+        Float64,
+        selected_topic,
+        lambda message: selected_frequency.append(float(message.data)),
+        10,
+    )
+    selection_pub = gate.create_publisher(String, manual_selection_topic, 10)
+    deadline = time.monotonic() + max(5.0, timeout_s)
+    try:
+        while not candidates and time.monotonic() < deadline and rclpy.ok():
+            rclpy.spin_once(gate, timeout_sec=0.20)
+        if not candidates:
+            raise RuntimeError(
+                "No pinger frequency candidates arrived before selection_timeout_s. "
+                "Verify the /audio stream and scanner band."
+            )
+        ranked = []
+        try:
+            ranked = json.loads(candidates[-1]).get("candidates", [])
+            for index, candidate in enumerate(ranked, start=1):
+                print(
+                    "[pinger] "
+                    f"[{index}] {float(candidate['frequency_hz']):.1f} Hz "
+                    f"(hits={int(candidate['hits'])}, score={float(candidate['score']):.6g})"
+                )
+        except (KeyError, TypeError, ValueError, json.JSONDecodeError):
+            print("[pinger] frequency scan complete; enter a candidate number or exact Hz.")
+        while True:
+            choice = input("[pinger] Enter displayed candidate 1-5 or an exact frequency in Hz: ").strip()
+            try:
+                numeric = float(choice)
+                valid_index = numeric.is_integer() and 1 <= int(numeric) <= len(ranked)
+                valid_frequency = 15000.0 <= numeric <= 25000.0
+                if valid_index or valid_frequency:
+                    break
+            except ValueError:
+                pass
+            print("[pinger] Enter a displayed candidate number or 15000--25000 Hz.")
+        selection_pub.publish(String(data=choice))
+        while not selected_frequency and time.monotonic() < deadline and rclpy.ok():
+            rclpy.spin_once(gate, timeout_sec=0.20)
+    finally:
+        gate.destroy_node()
+        rclpy.shutdown()
+
+    if not selected_frequency:
+        raise RuntimeError(
+            "No pinger frequency was selected before selection_timeout_s. "
+            "Enter a displayed candidate number in this launch terminal."
+        )
+    selected_hz = selected_frequency[-1]
+    if not 15000.0 <= selected_hz <= 25000.0:
+        raise RuntimeError(f"Selected frequency {selected_hz:.3f} Hz is outside 15000--25000 Hz")
+
+    launch_arguments = {
+        name: LaunchConfiguration(name).perform(context) for name in _REAL_ARGUMENTS
+    }
+    # Capture, if requested, was started before the scan.  Starting it again
+    # in the included real launch would create a second physical device owner.
+    launch_arguments["use_audio_capture"] = "false"
+    launch_arguments["reference_frequency_hz"] = f"{selected_hz:.6f}"
+    package_share = Path(get_package_share_directory("kmu26_pinger_homing"))
+    return [
+        LogInfo(msg=f"[pinger] selected {selected_hz:.3f} Hz; starting C++ Phase homing."),
+        IncludeLaunchDescription(
+            PythonLaunchDescriptionSource(str(package_share / "launch" / "pinger_homing_real.launch.py")),
+            launch_arguments=launch_arguments.items(),
+        ),
+    ]
+
+
+def generate_launch_description() -> LaunchDescription:
+    package_share = Path(get_package_share_directory("kmu26_pinger_homing"))
+    use_audio_capture = LaunchConfiguration("use_audio_capture")
+
+    # Keep defaults exactly aligned with pinger_homing_real.launch.py so GUI
+    # fixed-frequency startup and terminal-selected startup have one vehicle
+    # contract.  This launch adds only scanner/selection arguments.
+    arguments = [
+        DeclareLaunchArgument("dry_run", default_value="true"),
+        DeclareLaunchArgument("use_audio_capture", default_value="false"),
+        DeclareLaunchArgument("use_hydrophone_estimator", default_value="true"),
+        DeclareLaunchArgument("use_rc_mux", default_value="true"),
+        DeclareLaunchArgument("audio_device", default_value=""),
+        DeclareLaunchArgument("audio_topic", default_value="/audio"),
+        DeclareLaunchArgument("audio_channels", default_value="2"),
+        DeclareLaunchArgument("audio_sample_rate", default_value="96000"),
+        DeclareLaunchArgument("audio_sample_format", default_value="S32LE"),
+        DeclareLaunchArgument("odometry_topic", default_value="/odometry/filtered"),
+        DeclareLaunchArgument("imu_topic", default_value="/mavros/imu/data"),
+        DeclareLaunchArgument("depth_topic", default_value="/depth/pose"),
+        DeclareLaunchArgument("state_topic", default_value="/mavros/state"),
+        DeclareLaunchArgument("delta_range_topic", default_value="/audio_phase_estimator/delta_range_m"),
+        DeclareLaunchArgument("iq_magnitude_topic", default_value="/audio_phase_estimator/iq_magnitude"),
+        DeclareLaunchArgument("direction_topic", default_value="/homing/direction"),
+        DeclareLaunchArgument("status_topic", default_value="/pinger_homing/status"),
+        DeclareLaunchArgument("direction_output_topic", default_value="/pinger_homing/direction_body"),
+        DeclareLaunchArgument("pinger_rc_topic", default_value="/control/pinger/rc_override"),
+        DeclareLaunchArgument("rc_topic", default_value="/mavros/rc/override"),
+        DeclareLaunchArgument("rate_hz", default_value="30.0"),
+        DeclareLaunchArgument("mode", default_value="ALT_HOLD"),
+        DeclareLaunchArgument("auto_arm", default_value="false"),
+        DeclareLaunchArgument("auto_mode", default_value="false"),
+        DeclareLaunchArgument("forward_max", default_value="0.48"),
+        DeclareLaunchArgument("yaw_gain", default_value="0.85"),
+        DeclareLaunchArgument("yaw_command_limit", default_value="0.42"),
+        DeclareLaunchArgument("tank_max_depth_m", default_value="11.0"),
+        DeclareLaunchArgument("success_range_m", default_value="0.0"),
+        DeclareLaunchArgument("success_hold_s", default_value="0.8"),
+        DeclareLaunchArgument("arrival_radius_m", default_value="1.5"),
+        DeclareLaunchArgument("arrival_hold_s", default_value="1.0"),
+        DeclareLaunchArgument("max_runtime_s", default_value="180.0"),
+        DeclareLaunchArgument("amplitude_range_constant", default_value="0.0"),
+        DeclareLaunchArgument("rc_mux_stale_timeout", default_value="0.35"),
+        DeclareLaunchArgument("rc_pwm_span", default_value="400.0"),
+        DeclareLaunchArgument("probe_pwm_delta", default_value="20"),
+        DeclareLaunchArgument("approach_pwm_delta", default_value="25"),
+        DeclareLaunchArgument("probe_leg_s", default_value="1.5"),
+        DeclareLaunchArgument("probe_neutral_s", default_value="0.50"),
+        DeclareLaunchArgument("probe_settle_s", default_value="0.80"),
+        DeclareLaunchArgument("probe_sample_delay_s", default_value="0.45"),
+        DeclareLaunchArgument("approach_duration_s", default_value="4.0"),
+        DeclareLaunchArgument("initial_confirmation_probes", default_value="2"),
+        DeclareLaunchArgument("selected_frequency_topic", default_value="/pinger_homing/selected_frequency_hz"),
+        DeclareLaunchArgument("candidate_topic", default_value="/pinger_homing/frequency_candidates"),
+        DeclareLaunchArgument("manual_selection_topic", default_value="/pinger_homing/manual_selection"),
+        DeclareLaunchArgument("scan_monitor_s", default_value="5.0"),
+        DeclareLaunchArgument("selection_timeout_s", default_value="90.0"),
+    ]
+
+    capture = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            str(Path(get_package_share_directory("audio_capture")) / "launch" / "capture.launch.py")
+        ),
+        launch_arguments={
+            "device": LaunchConfiguration("audio_device"),
+            "audio_topic": LaunchConfiguration("audio_topic"),
+            "channels": LaunchConfiguration("audio_channels"),
+            "sample_rate": LaunchConfiguration("audio_sample_rate"),
+            "sample_format": LaunchConfiguration("audio_sample_format"),
+            "ns": "",
+        }.items(),
+        condition=IfCondition(use_audio_capture),
+    )
+    selector = Node(
+        package="kmu26_pinger_homing",
+        executable="pinger_frequency_selector",
+        name="pinger_frequency_selector",
+        output="screen",
+        parameters=[{
+            "audio_topic": LaunchConfiguration("audio_topic"),
+            "channels": ParameterValue(LaunchConfiguration("audio_channels"), value_type=int),
+            "sample_rate": ParameterValue(LaunchConfiguration("audio_sample_rate"), value_type=int),
+            "monitor_s": ParameterValue(LaunchConfiguration("scan_monitor_s"), value_type=float),
+            "auto_select_top": False,
+            "selected_frequency_topic": LaunchConfiguration("selected_frequency_topic"),
+            "candidate_topic": LaunchConfiguration("candidate_topic"),
+            "manual_selection_topic": LaunchConfiguration("manual_selection_topic"),
+            "stdin_selection_enabled": False,
+        }],
+    )
+
+    return LaunchDescription(arguments + [
+        capture,
+        # Let a just-started capture process establish /audio before the scan.
+        TimerAction(period=1.0, actions=[selector]),
+        TimerAction(
+            period=1.5,
+            actions=[OpaqueFunction(function=_start_real_homing_after_selection)],
+        ),
+    ])

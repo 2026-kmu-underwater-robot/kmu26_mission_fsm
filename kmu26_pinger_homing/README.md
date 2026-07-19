@@ -25,7 +25,7 @@
 vcs import src < src/kmu26_mission_fsm/hydrophone.repos
 colcon build --symlink-install --packages-up-to kmu26_pinger_homing
 source install/setup.bash
-ros2 run kmu26_pinger_homing start_pinger_homing_real.sh \
+ros2 launch kmu26_pinger_homing pinger_homing_real_interactive.launch.py \
   dry_run:=true use_audio_capture:=false tank_max_depth_m:=2.0
 ```
 

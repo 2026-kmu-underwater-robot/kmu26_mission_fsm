@@ -46,7 +46,7 @@ source install/setup.bash
 실물 오디오 스트림이 이미 실행 중일 때, 주파수를 스캔·선택하는 dry-run:
 
 ```bash
-ros2 run kmu26_pinger_homing start_pinger_homing_real.sh \
+ros2 launch kmu26_pinger_homing pinger_homing_real_interactive.launch.py \
   dry_run:=true use_audio_capture:=false tank_max_depth_m:=2.0
 ```
 
@@ -56,10 +56,10 @@ ros2 run kmu26_pinger_homing start_pinger_homing_real.sh \
 ros2 run kmu26_pinger_homing start_pinger_homing_gui.sh
 ```
 
-wrapper는 5초 뒤 후보 1~5 또는 Hz를 터미널에서 받으며, 선택 주파수로
+launch는 5초 뒤 후보 1~5 또는 Hz를 터미널에서 받으며, 선택 주파수로
 기존 hydrophone estimator를 시작한 뒤 canonical C++ no-odometry Phase
 제어기를 실행한다. GUI의 직접 start는 자동 스캔을 하지 않으므로, 실물
-초기 시험은 이 wrapper를 쓴다. 처음에는 반드시 프로펠러를 제거하고
+초기 시험은 이 interactive launch를 쓴다. 처음에는 반드시 프로펠러를 제거하고
 `dry_run:=true`로 토픽과 추정 상태부터 확인한다.
 
 ## test-tank Phase/SNR 핑거 호밍

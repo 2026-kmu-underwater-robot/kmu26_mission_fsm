@@ -44,6 +44,7 @@ class FingerFrequencySelector final : public rclcpp::Node {
     window_size_ = std::clamp(static_cast<int>(declare_parameter<int>("window_size", 4096)), 512, 16384);
     hop_size_ = std::clamp(static_cast<int>(declare_parameter<int>("hop_size", 4096)), 512, window_size_);
     auto_select_top_ = declare_parameter<bool>("auto_select_top", false);
+    stdin_selection_enabled_ = declare_parameter<bool>("stdin_selection_enabled", true);
     // A frequency choice is valid only for this five-second scan.  Do not
     // latch it: a new test-tank launch must never start probing from the
     // previous run's DDS history and then have its Phase accumulator reset
@@ -187,6 +188,12 @@ class FingerFrequencySelector final : public rclcpp::Node {
       RCLCPP_INFO(get_logger(), "  [%zu] %.1f Hz (hits=%d score=%.6g)",
                   i + 1, values[i].frequency, values[i].hits, values[i].magnitude);
     }
+    if (!auto_select_top_ && stdin_selection_enabled_) {
+      RCLCPP_INFO(
+          get_logger(),
+          "Enter candidate 1-%zu or an exact frequency in Hz in this terminal.",
+          values.size());
+    }
     if (auto_select_top_ && !values.empty()) select(values.front().frequency);
   }
 
@@ -223,7 +230,7 @@ class FingerFrequencySelector final : public rclcpp::Node {
     if (!monitor_finished_ && std::chrono::duration<double>(Clock::now() - started_).count() >= monitor_s_) {
       finish_monitor();
     }
-    if (!monitor_finished_ || selected_ || auto_select_top_) return;
+    if (!monitor_finished_ || selected_ || auto_select_top_ || !stdin_selection_enabled_) return;
     pollfd descriptor{STDIN_FILENO, POLLIN, 0};
     if (::poll(&descriptor, 1, 0) <= 0) return;
     std::string line;
@@ -236,7 +243,7 @@ class FingerFrequencySelector final : public rclcpp::Node {
   int sample_rate_{96000}, channels_{2}, channel_index_{0}, window_size_{4096}, hop_size_{4096};
   double monitor_s_{5.0}, min_frequency_{15000.0}, max_frequency_{25000.0}, frequency_step_{100.0};
   double fine_frequency_step_{2.0}, fine_half_width_{75.0};
-  bool auto_select_top_{false}, monitor_finished_{false}, selected_{false};
+  bool auto_select_top_{false}, stdin_selection_enabled_{true}, monitor_finished_{false}, selected_{false};
   std::uint64_t sample_cursor_{0};
   std::deque<double> samples_;
   std::vector<double> last_window_;

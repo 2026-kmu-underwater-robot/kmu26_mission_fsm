@@ -2,12 +2,11 @@
 """Standalone physical-vehicle bringup for canonical C++ Phase homing.
 
 The hydrophone estimator remains the separately maintained ``audio_capture``
-implementation.  Frequency selection intentionally happens *before* this
-launch, in ``start_pinger_homing_real.sh``: that wrapper scans the raw audio,
-lets the operator select one candidate, and supplies the selected value as the
-estimator's immutable startup frequency.  This preserves the hydrophone
-algorithm while preventing a stale frequency from becoming part of an active
-Phase probe.
+implementation.  For terminal scan-and-select use
+``pinger_homing_real_interactive.launch.py``; this fixed-frequency launch is
+also kept for the Web GUI, which already supplies an explicit selected
+frequency.  Both routes start the estimator at that immutable frequency and
+therefore preserve the hydrophone algorithm.
 """
 
 from __future__ import annotations

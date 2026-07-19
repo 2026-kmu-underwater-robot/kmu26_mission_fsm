@@ -51,19 +51,20 @@ tests as an oracle.
 
 ## Real-vehicle launch
 
-Start the physical audio stream first.  Then use the wrapper below instead of
-launching the real launch directly.  It scans for five seconds, prints up to
+Start the physical audio stream first.  Then use the interactive launch below instead of
+launching the fixed-frequency real launch directly.  It scans for five seconds, prints up to
 five candidates, accepts a candidate number or a Hz value in the terminal,
 and starts the untouched `audio_phase_estimator` at that selected frequency.
 
 ```bash
-ros2 run kmu26_pinger_homing start_pinger_homing_real.sh \
+ros2 launch kmu26_pinger_homing pinger_homing_real_interactive.launch.py \
   dry_run:=true use_audio_capture:=false tank_max_depth_m:=11.0
 ```
 
-`use_audio_capture:=true` is intentionally rejected by this wrapper: audio
-must already be present before it can be scanned.  Direct launch remains
-available only when the operator has already measured a frequency and passes
+Set `use_audio_capture:=false` when the vehicle stack already owns `/audio`.
+If it must be started here, `use_audio_capture:=true` starts capture first,
+then begins the scan.  Fixed-frequency direct launch remains available only
+when the operator has already measured a frequency and passes
 `reference_frequency_hz:=...` explicitly.
 
 The C++ controller never arms automatically by default and will publish
