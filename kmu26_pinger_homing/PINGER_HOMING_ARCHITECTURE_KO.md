@@ -79,19 +79,22 @@ colcon build --packages-select \
 source install/setup.bash
 ```
 
-핑거 호밍만 실행:
+실물 오디오 스트림을 켠 뒤 핑거 호밍만 실행한다. 아래 wrapper는 먼저 5초 동안
+주파수를 스캔하고 후보 1~5개를 출력한다. 터미널에서 후보 번호(또는 Hz)를 고르면,
+그 주파수를 원본 phase estimator의 시작 파라미터로 넣은 뒤 canonical C++ 제어기를
+실행한다.
 
 ```bash
-ros2 launch kmu26_pinger_homing pinger_homing_real.launch.py \
+ros2 run kmu26_pinger_homing start_pinger_homing_real.sh \
   dry_run:=true \
   use_audio_capture:=false \
   use_hydrophone_estimator:=true \
   tank_max_depth_m:=11.0
 ```
 
-`kmu26_pinger_homing`의 **Pinger Homing** Web GUI도 같은 전용 launch를 실행한다. GUI의 Live
-RC 버튼은 자동 아밍하지 않고, `/mavros/state`가 armed일 때만 컨트롤러 출력이 mux를 통해
-`/mavros/rc/override`로 전달된다. 실물 IQ-거리 보정 전에는
+Web GUI에서 직접 실행할 때는 입력한 고정 주파수를 쓰고, 현장 스캔·선택은 위 wrapper를
+사용한다. GUI의 Live RC 버튼은 자동 아밍하지 않고, `/mavros/state`가 armed일 때만
+컨트롤러 출력이 mux를 통해 `/mavros/rc/override`로 전달된다. 실물 IQ-거리 보정 전에는
 `amplitude_range_constant:=0.0`, `success_range_m:=0.0`을 유지한다.
 
 Python 구현은 비교/아카이브용으로 남기며, 설치·수조·실물 launch의 제어기는 canonical

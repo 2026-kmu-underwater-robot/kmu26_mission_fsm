@@ -6,11 +6,11 @@ the team fork of `kmu26_auv_hydrophone` through ROS topics.
 
 ## Controllers
 
-- `single_hydrophone_homing_controller.py`: the installed active-range RC controller.
-- `single_hydrophone_homing_math.py`: moving-sensor 3D source fit, yaw stabilization, automatic
-  vertical probe selection, and tank-depth safety functions used by the active controller.
-- `pinger_homing_controller.cpp`: legacy direction/YOLO prototype retained as source history. It is
-  intentionally not built or installed by `kmu26_pinger_homing`.
+- `pinger_homing_controller.cpp`: installed canonical C++ Phase/SNR RC controller.
+- `pinger_homing_math.hpp`: robust moving-sensor source fit, yaw stabilization,
+  no-odometry ABBA/Huber bearing fit, and safety functions used by that controller.
+- `single_hydrophone_homing_controller.py`: archived prior Python controller. It is
+  installed only for source compatibility and is not selected by the real launch.
 
 The active controller keeps the tested state order:
 
@@ -18,10 +18,11 @@ The active controller keeps the tested state order:
 WAIT_VEHICLE -> PROBE <-> REPROBE -> ALIGN <-> APPROACH -> CONTACT -> COMPLETE
 ```
 
-It samples vehicle positions together with phase-derived range changes and coherent-IQ amplitude
-ranges. Forward, lateral, and vertical probe legs provide the non-coplanar motion required to fit a
-3D stationary source. `tank_max_depth_m` is the only pool-depth input; the controller derives the
-vehicle depth limit and chooses the safer vertical probe direction from it.
+The physical default is `no_odom_phase`: it makes neutral-separated ABBA X/Y
+probe legs, estimates the bearing from Phase range changes, aligns with
+MAVROS IMU yaw, moves forward briefly, then probes again.  It deliberately
+does not feed `/odometry/filtered` or any simulator ground truth into Phase
+control.  ALT_HOLD owns vertical control.
 
 ## Topic boundary
 
@@ -33,8 +34,11 @@ Inputs from the forked hydrophone package:
 
 Vehicle inputs:
 
-- `/odometry/filtered` (`nav_msgs/Odometry`)
+- `/mavros/imu/data` (`sensor_msgs/Imu`)
 - `/mavros/state` (`mavros_msgs/State`)
+- `/depth/pose` (`geometry_msgs/PoseWithCovarianceStamped`, monitored for
+  the physical preflight; not a no-odometry Phase fitting input or a gate for
+  the horizontal-only ALT_HOLD profile)
 
 Outputs:
 
@@ -47,18 +51,25 @@ tests as an oracle.
 
 ## Real-vehicle launch
 
+Start the physical audio stream first.  Then use the wrapper below instead of
+launching the real launch directly.  It scans for five seconds, prints up to
+five candidates, accepts a candidate number or a Hz value in the terminal,
+and starts the untouched `audio_phase_estimator` at that selected frequency.
+
 ```bash
-ros2 launch kmu26_pinger_homing pinger_homing_real.launch.py \
-  dry_run:=true \
-  use_audio_capture:=false \
-  use_hydrophone_estimator:=true \
-  tank_max_depth_m:=11.0
+ros2 run kmu26_pinger_homing start_pinger_homing_real.sh \
+  dry_run:=true use_audio_capture:=false tank_max_depth_m:=11.0
 ```
 
-`dry_run:=true` computes the same requested command but publishes `CHAN_RELEASE` on every RC
-channel. Live mode does not arm the vehicle and activates output only while `/mavros/state` reports
-armed. The amplitude range relation `(K / iq_magnitude)^2` requires a measured physical calibration;
-the standalone real launch therefore defaults `K=0` and disables metric range completion. The old
-`0.325` value is simulator-only. Its dedicated mux refuses to publish when another publisher owns
-`/mavros/rc/override`. The patched physical joystick publishes to
-`/control/joystick/rc_override`, has higher mux priority, and releases its input while idle.
+`use_audio_capture:=true` is intentionally rejected by this wrapper: audio
+must already be present before it can be scanned.  Direct launch remains
+available only when the operator has already measured a frequency and passes
+`reference_frequency_hz:=...` explicitly.
+
+The C++ controller never arms automatically by default and will publish
+non-neutral RC only while MAVROS reports both `armed=true` and actual
+`ALT_HOLD`.  The first physical profile uses ±20 PWM ABBA probes and +25 PWM
+approach demand around 1500; these are launch parameters, not hidden code
+constants.  The amplitude range relation `(K / iq_magnitude)^2` still requires
+a measured physical calibration, so the default `K=0` disables metric-range
+completion.  The simulator-only `0.325` must not be used on the vehicle.

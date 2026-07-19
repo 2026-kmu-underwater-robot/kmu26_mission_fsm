@@ -1,5 +1,14 @@
 #!/usr/bin/env python3
-"""Standalone, real-vehicle bringup for the KMU26 pinger homing controller."""
+"""Standalone physical-vehicle bringup for canonical C++ Phase homing.
+
+The hydrophone estimator remains the separately maintained ``audio_capture``
+implementation.  Frequency selection intentionally happens *before* this
+launch, in ``start_pinger_homing_real.sh``: that wrapper scans the raw audio,
+lets the operator select one candidate, and supplies the selected value as the
+estimator's immutable startup frequency.  This preserves the hydrophone
+algorithm while preventing a stale frequency from becoming part of an active
+Phase probe.
+"""
 
 from __future__ import annotations
 
@@ -21,6 +30,7 @@ def generate_launch_description() -> LaunchDescription:
 
     audio_topic = LaunchConfiguration("audio_topic")
     odometry_topic = LaunchConfiguration("odometry_topic")
+    imu_topic = LaunchConfiguration("imu_topic")
     depth_topic = LaunchConfiguration("depth_topic")
     state_topic = LaunchConfiguration("state_topic")
     delta_range_topic = LaunchConfiguration("delta_range_topic")
@@ -43,6 +53,7 @@ def generate_launch_description() -> LaunchDescription:
         DeclareLaunchArgument("audio_sample_format", default_value="S32LE"),
         DeclareLaunchArgument("reference_frequency_hz", default_value="21164.0"),
         DeclareLaunchArgument("odometry_topic", default_value="/odometry/filtered"),
+        DeclareLaunchArgument("imu_topic", default_value="/mavros/imu/data"),
         DeclareLaunchArgument("depth_topic", default_value="/depth/pose"),
         DeclareLaunchArgument("state_topic", default_value="/mavros/state"),
         DeclareLaunchArgument(
@@ -61,6 +72,13 @@ def generate_launch_description() -> LaunchDescription:
         ),
         DeclareLaunchArgument("rc_topic", default_value="/mavros/rc/override"),
         DeclareLaunchArgument("rate_hz", default_value="30.0"),
+        DeclareLaunchArgument(
+            "mode",
+            default_value="ALT_HOLD",
+            description="Required physical ArduSub mode; the C++ controller never drives in MANUAL.",
+        ),
+        DeclareLaunchArgument("auto_arm", default_value="false"),
+        DeclareLaunchArgument("auto_mode", default_value="false"),
         DeclareLaunchArgument("forward_max", default_value="0.48"),
         DeclareLaunchArgument("yaw_gain", default_value="0.85"),
         DeclareLaunchArgument("yaw_command_limit", default_value="0.42"),
@@ -79,6 +97,19 @@ def generate_launch_description() -> LaunchDescription:
             ),
         ),
         DeclareLaunchArgument("rc_mux_stale_timeout", default_value="0.35"),
+        # Physical Phase profile.  These are PWM deltas from 1500, rather
+        # than a simulator-normalized command.  Keep the initial values small
+        # enough for tethered commissioning and expose every motion timing
+        # needed to tune a particular vehicle.
+        DeclareLaunchArgument("rc_pwm_span", default_value="400.0"),
+        DeclareLaunchArgument("probe_pwm_delta", default_value="20"),
+        DeclareLaunchArgument("approach_pwm_delta", default_value="25"),
+        DeclareLaunchArgument("probe_leg_s", default_value="1.5"),
+        DeclareLaunchArgument("probe_neutral_s", default_value="0.50"),
+        DeclareLaunchArgument("probe_settle_s", default_value="0.80"),
+        DeclareLaunchArgument("probe_sample_delay_s", default_value="0.45"),
+        DeclareLaunchArgument("approach_duration_s", default_value="4.0"),
+        DeclareLaunchArgument("initial_confirmation_probes", default_value="2"),
     ]
 
     capture_launch = IncludeLaunchDescription(
@@ -123,12 +154,26 @@ def generate_launch_description() -> LaunchDescription:
 
     controller = Node(
         package="kmu26_pinger_homing",
-        executable="single_hydrophone_homing_controller.py",
-        name="single_hydrophone_homing_controller",
+        executable="pinger_homing_controller",
+        name="pinger_homing_controller",
         output="screen",
         parameters=[{
+            # This is the canonical C++ state machine verified in the test
+            # tank.  The real profile retains its conservative timing and
+            # requires the vehicle's actual ALT_HOLD state before live RC.
+            "controller_mode": "active_range",
+            "navigation_mode": "no_odom_phase",
+            "acoustic_estimator_mode": "phase",
+            "controller_profile": "real",
+            "transport": "rc_override",
+            "legacy_python_sequence": True,
             "dry_run": ParameterValue(dry_run, value_type=bool),
+            "auto_arm": ParameterValue(LaunchConfiguration("auto_arm"), value_type=bool),
+            "auto_mode": ParameterValue(LaunchConfiguration("auto_mode"), value_type=bool),
+            "mode": LaunchConfiguration("mode"),
             "odometry_topic": odometry_topic,
+            "imu_topic": imu_topic,
+            "depth_pose_topic": depth_topic,
             "vehicle_state_topic": state_topic,
             "delta_range_topic": delta_range_topic,
             "iq_magnitude_topic": iq_magnitude_topic,
@@ -137,6 +182,7 @@ def generate_launch_description() -> LaunchDescription:
             "status_topic": status_topic,
             "rc_output_topic": pinger_rc_topic,
             "rate_hz": ParameterValue(LaunchConfiguration("rate_hz"), value_type=float),
+            "rc_pwm_span": ParameterValue(LaunchConfiguration("rc_pwm_span"), value_type=float),
             "forward_max": ParameterValue(
                 LaunchConfiguration("forward_max"), value_type=float
             ),
@@ -147,6 +193,35 @@ def generate_launch_description() -> LaunchDescription:
             "tank_max_depth_m": ParameterValue(
                 LaunchConfiguration("tank_max_depth_m"), value_type=float
             ),
+            # No localization is used as a Phase control input. ALT_HOLD owns
+            # vertical control while the C++ ABBA fit excites only XY.
+            "no_odom_horizontal_only": True,
+            "no_odom_vertical_control_enabled": False,
+            "no_odom_probe_pwm_delta": ParameterValue(
+                LaunchConfiguration("probe_pwm_delta"), value_type=int
+            ),
+            "no_odom_approach_pwm_delta": ParameterValue(
+                LaunchConfiguration("approach_pwm_delta"), value_type=int
+            ),
+            "no_odom_probe_leg_s": ParameterValue(
+                LaunchConfiguration("probe_leg_s"), value_type=float
+            ),
+            "no_odom_probe_neutral_s": ParameterValue(
+                LaunchConfiguration("probe_neutral_s"), value_type=float
+            ),
+            "no_odom_probe_settle_s": ParameterValue(
+                LaunchConfiguration("probe_settle_s"), value_type=float
+            ),
+            "no_odom_probe_sample_delay_s": ParameterValue(
+                LaunchConfiguration("probe_sample_delay_s"), value_type=float
+            ),
+            "no_odom_forward_duration_s": ParameterValue(
+                LaunchConfiguration("approach_duration_s"), value_type=float
+            ),
+            "no_odom_initial_confirmation_probes": ParameterValue(
+                LaunchConfiguration("initial_confirmation_probes"), value_type=int
+            ),
+            "no_odom_terminal_brake_enabled": True,
             "success_range_m": ParameterValue(
                 LaunchConfiguration("success_range_m"), value_type=float
             ),

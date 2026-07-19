@@ -77,12 +77,23 @@ if(BUILD_TESTING)
     NAME pinger_2d_homing_contract
     COMMAND ${Python3_EXECUTABLE}
       ${CMAKE_CURRENT_SOURCE_DIR}/test/test_2d_homing_contract.py)
+  add_test(
+    NAME pinger_real_phase_launch_contract
+    COMMAND ${Python3_EXECUTABLE}
+      ${CMAKE_CURRENT_SOURCE_DIR}/test/test_real_phase_launch_contract.py)
+  add_test(
+    NAME no_odom_xy_depthless_runtime
+    COMMAND ${Python3_EXECUTABLE}
+      ${CMAKE_CURRENT_SOURCE_DIR}/test/test_no_odom_xy_depthless_runtime.py
+      --controller $<TARGET_FILE:pinger_homing_controller>)
   set_tests_properties(single_hydrophone_homing_math PROPERTIES TIMEOUT 30)
   set_tests_properties(pinger_homing_dry_run PROPERTIES TIMEOUT 15)
   set_tests_properties(pinger_homing_live_runtime PROPERTIES TIMEOUT 15)
   set_tests_properties(rc_override_mux_runtime PROPERTIES TIMEOUT 15)
   set_tests_properties(pinger_rc_pipeline_runtime PROPERTIES TIMEOUT 15)
   set_tests_properties(pinger_hydrophone_repository_boundary PROPERTIES TIMEOUT 10)
+  set_tests_properties(pinger_real_phase_launch_contract PROPERTIES TIMEOUT 10)
+  set_tests_properties(no_odom_xy_depthless_runtime PROPERTIES TIMEOUT 10)
 endif()
 
 install(TARGETS
@@ -97,6 +108,7 @@ install(PROGRAMS
   src/pinger_homing/single_hydrophone_homing_controller.py
   scripts/pinger_web_gui
   scripts/start_pinger_homing_gui.sh
+  scripts/start_pinger_homing_real.sh
   scripts/start_pinger_homing_test_tank.sh
   scripts/install_pinger_homing_gui_launcher.sh
   DESTINATION lib/${PROJECT_NAME})

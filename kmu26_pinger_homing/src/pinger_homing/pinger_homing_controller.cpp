@@ -946,10 +946,16 @@ class PingerHomingController : public rclcpp::Node {
         !attitude_quaternion(now)) {
       return false;
     }
-    // When a tank depth is configured, Bar30 is mandatory: an unavailable
-    // depth sample must stop all probe/approach commands rather than merely
-    // disabling the floor limiter.
-    return max_vehicle_depth_m_ <= 0.0 || current_position_z(now).has_value();
+    // The physical XY-only profile leaves all vertical authority to
+    // ArduSub ALT_HOLD.  In that configuration depth is still exposed in the
+    // status/preflight surface, but it must not gate Phase bearing probes:
+    // the vehicle has no controller-issued heave command for a floor limiter
+    // to constrain.  Three-axis/vertical profiles keep the strict Bar30
+    // requirement whenever a tank depth limit is configured.
+    const bool passive_vertical_alt_hold =
+        no_odom_horizontal_only_ && !no_odom_vertical_control_enabled_;
+    return passive_vertical_alt_hold || max_vehicle_depth_m_ <= 0.0 ||
+           current_position_z(now).has_value();
   }
 
   Command no_odom_probe_command(double elapsed_s, bool &complete) {

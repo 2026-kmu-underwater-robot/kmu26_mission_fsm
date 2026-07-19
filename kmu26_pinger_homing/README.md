@@ -25,7 +25,8 @@
 vcs import src < src/kmu26_mission_fsm/hydrophone.repos
 colcon build --symlink-install --packages-up-to kmu26_pinger_homing
 source install/setup.bash
-ros2 launch kmu26_pinger_homing pinger_homing_real.launch.py dry_run:=true tank_max_depth_m:=2.0
+ros2 run kmu26_pinger_homing start_pinger_homing_real.sh \
+  dry_run:=true use_audio_capture:=false tank_max_depth_m:=2.0
 ```
 
 GUI:
@@ -43,10 +44,15 @@ ros2 run kmu26_pinger_homing start_pinger_homing_gui.sh
 3. `Preflight`가 모두 통과한 경우에만 `Start Live RC`를 누른다.
 4. 조이스틱을 움직이면 조이스틱이 mux 우선권을 가져간다. `Stop` 또는 `DISARM`으로 즉시 중단한다.
 
-GUI와 launch는 자동 아밍하지 않는다. odometry, audio, MAVROS state가 stale이거나 disarm이면
-모든 RC 채널을 release한다. 기본 180초 제한 또는 추정 핑거 위치 반경 1.5 m 안에서 1초 유지 시
-접근을 종료하고 RC를 release한다. 실물 IQ 거리 보정 전에는
-`amplitude_range_constant=0`, `success_range_m=0`을 유지한다.
+실물 wrapper는 시작 전에 5초 주파수 스캔을 수행하고 후보 1~5 또는 Hz를
+같은 터미널에서 받는다. 선택한 주파수로 기존 `audio_phase_estimator`를
+시작한 뒤, 검증된 C++ no-odometry Phase 제어기를 실행한다. GUI에서 직접
+launch하는 경로는 자동 스캔을 수행하지 않으므로, 실물 초기 시험은 wrapper를
+사용한다.
+
+GUI와 C++ launch는 자동 아밍하지 않는다. audio, MAVROS state 또는 IMU가
+stale이거나 disarm/ALT_HOLD 이탈이면 모든 RC 채널을 release한다. 실물 IQ
+거리 보정 전에는 `amplitude_range_constant=0`, `success_range_m=0`을 유지한다.
 
 ## 통합 2-D Phase/SNR 모드
 
